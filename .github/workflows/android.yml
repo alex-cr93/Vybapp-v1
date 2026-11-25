@@ -47,6 +47,8 @@ jobs:
               -keystore ~/.android/debug.keystore
           fi
           cp ~/.android/debug.keystore debug.keystore
+      - name: Print SHA-1
+        run: keytool -list -v -keystore ~/.android/debug.keystore -storepass android
 
 
       - name: Decode debug keystore
@@ -73,7 +75,3 @@ jobs:
             gradle :app:assembleDebug --no-daemon
             echo "APK_PATH=app/build/outputs/apk/debug/app-debug.apk" >> "$GITHUB_ENV"
           fi
-
-            - name: Print SHA-1 fingerprint
-          run: keytool -list -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey
-
