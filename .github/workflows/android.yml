@@ -32,11 +32,22 @@ jobs:
         env:
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
         run: |
+
           if [ -n "$MAPS_API_KEY" ]; then
             echo "MAPS_API_KEY=$MAPS_API_KEY" > .env
           elif [ ! -f .env ] && [ -f .env.example ]; then
             cp .env.example .env
           fi
+      - name: Generate debug keystore
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            keytool -genkeypair -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 365 \
+              -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US" \
+              -keystore ~/.android/debug.keystore
+          fi
+          cp ~/.android/debug.keystore debug.keystore
+
 
       - name: Decode debug keystore
         run: |
