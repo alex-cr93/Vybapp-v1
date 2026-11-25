@@ -10,6 +10,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.example.data.repository.ChatRepository
 import com.example.data.repository.UserRepository
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
@@ -20,7 +21,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.TimeUnit
 
 private const val TAG = "VybMessagingService"
@@ -48,15 +51,24 @@ class VybMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
+        val appContext = applicationContext
+        NotificationHelper.ensureChannels(appContext)
+
         val data = remoteMessage.data
         val notif = remoteMessage.notification
-        val channelType = data["channelType"] ?: data["type"] ?: "chat"
+        val rawType = (data["channelType"] ?: data["type"] ?: "chat").trim().lowercase()
+        val channelType = when (rawType) {
+            "call", "sinpe", "request", "buzz" -> rawType
+            else -> "chat"
+        }
         val targetChatId = data["chatId"]?.takeIf { it.isNotBlank() }
+        val messageId = data["messageId"]?.takeIf { it.isNotBlank() }
         val openRequests = data["openRequests"] == "true" || channelType == "request"
         val openCalls = data["openCalls"] == "true" || channelType == "call"
 
         val title = data["title"]?.takeIf { it.isNotBlank() }
             ?: notif?.title?.takeIf { it.isNotBlank() }
+            ?: data["senderName"]?.takeIf { it.isNotBlank() }
             ?: when (channelType) {
                 "call" -> "Llamada entrante VYB"
                 "sinpe" -> "Cobro SINPE Móvil"
@@ -67,28 +79,44 @@ class VybMessagingService : FirebaseMessagingService() {
 
         val body = data["body"]?.takeIf { it.isNotBlank() }
             ?: notif?.body?.takeIf { it.isNotBlank() }
+            ?: data["text"]?.takeIf { it.isNotBlank() }
             ?: when (channelType) {
                 "buzz" -> "Te envió un bip"
-                else -> "Tienes nueva actividad en tu cuenta VYB."
+                else -> "Tienes un mensaje nuevo en VYB."
             }
 
         val eventKey = data["eventId"]?.takeIf { it.isNotBlank() }
-            ?: "fcm_${remoteMessage.messageId ?: "${channelType}_${targetChatId.orEmpty()}_${body.hashCode()}"}"
+            ?: messageId?.let { "msg_${targetChatId.orEmpty()}_$it" }
+            ?: "fcm_${remoteMessage.messageId ?: "${channelType}_${targetChatId.orEmpty()}_${remoteMessage.sentTime}_${body.hashCode()}"}"
 
-        val appContext = applicationContext
-        serviceScope.launch {
-            val shouldNotify = PreferencesStore(appContext).markEventNotifiedIfNew(eventKey)
-            if (shouldNotify) {
-                NotificationHelper.showNotification(
-                    context = appContext,
-                    channelType = channelType,
-                    title = title,
-                    body = body,
-                    notificationId = eventKey.hashCode(),
-                    targetChatId = targetChatId,
-                    openRequestsTab = openRequests,
-                    openCallsTab = openCalls
-                )
+        runBlocking(Dispatchers.IO) {
+            withTimeoutOrNull(8_000L) {
+                val shouldNotify = PreferencesStore(appContext).markEventNotifiedIfNew(eventKey)
+                if (shouldNotify) {
+                    NotificationHelper.showNotification(
+                        context = appContext,
+                        channelType = channelType,
+                        title = title,
+                        body = body,
+                        notificationId = eventKey.hashCode(),
+                        targetChatId = targetChatId,
+                        openRequestsTab = openRequests,
+                        openCallsTab = openCalls
+                    )
+                }
+                if (targetChatId != null &&
+                    channelType in setOf("chat", "sinpe", "buzz") &&
+                    Firebase.auth.currentUser != null
+                ) {
+                    runCatching {
+                        ChatRepository(appContext).acknowledgeChatDelivered(
+                            chatId = targetChatId,
+                            messageIds = listOfNotNull(messageId)
+                        )
+                    }.onFailure { err ->
+                        Log.w(TAG, "Push delivery ACK skipped: ${err.localizedMessage}")
+                    }
+                }
             }
         }
     }
@@ -104,7 +132,9 @@ object PushNotificationRegistrar {
         preferencesStore: PreferencesStore
     ): String? {
         return runCatching {
-            val token = FirebaseMessaging.getInstance().token.await()
+            val messaging = FirebaseMessaging.getInstance()
+            messaging.isAutoInitEnabled = true
+            val token = messaging.token.await()
             if (token.isNotBlank()) {
                 preferencesStore.setFcmToken(token)
                 userRepository.saveFcmToken(token)

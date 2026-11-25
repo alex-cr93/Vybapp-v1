@@ -100,6 +100,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GraphicEq
@@ -248,6 +249,7 @@ import com.example.ui.viewmodel.AssistantViewModel
 import com.example.ui.viewmodel.ChatFilter
 import com.example.ui.viewmodel.ChatViewModel
 import com.example.ui.viewmodel.FeedViewModel
+import com.example.ui.viewmodel.MessageDeliveryStatus
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -817,14 +819,21 @@ private fun ChatListView(
                                 val isLastFromMe = chat.lastMessageSenderId == currentUser.userId &&
                                     visibleLastMessage != "Conversación vacía" &&
                                     chat.lastMessageText.isNotBlank()
-                                val isLastRead = isLastFromMe && ChatViewModel.isMessageReadByPeer(
-                                    chat = chat,
-                                    messageCreatedAt = chat.lastMessageAt,
-                                    currentUid = currentUser.userId,
-                                    readReceiptsEnabled = readReceiptsEnabled
-                                )
+                                val lastMsgStatus = if (isLastFromMe) {
+                                    ChatViewModel.resolveChatLastMessageStatus(
+                                        chat = chat,
+                                        currentUid = currentUser.userId,
+                                        readReceiptsEnabled = readReceiptsEnabled
+                                    )
+                                } else {
+                                    MessageDeliveryStatus.SENT
+                                }
                                 val listCheckColor by animateColorAsState(
-                                    targetValue = if (isLastRead) vybColors.linkAccent else vybColors.secondaryText.copy(alpha = 0.65f),
+                                    targetValue = when (lastMsgStatus) {
+                                        MessageDeliveryStatus.READ -> Color(0xFF38BDF8)
+                                        MessageDeliveryStatus.DELIVERED -> vybColors.secondaryText.copy(alpha = 0.78f)
+                                        MessageDeliveryStatus.SENT -> vybColors.secondaryText.copy(alpha = 0.58f)
+                                    },
                                     animationSpec = tween(220),
                                     label = "chat_list_read_check"
                                 )
@@ -901,8 +910,16 @@ private fun ChatListView(
                                                 ) {
                                                     if (isLastFromMe) {
                                                         Icon(
-                                                            imageVector = Icons.Filled.DoneAll,
-                                                            contentDescription = if (isLastRead) "Leído" else "Enviado",
+                                                            imageVector = if (lastMsgStatus == MessageDeliveryStatus.SENT) {
+                                                                Icons.Filled.Done
+                                                            } else {
+                                                                Icons.Filled.DoneAll
+                                                            },
+                                                            contentDescription = when (lastMsgStatus) {
+                                                                MessageDeliveryStatus.READ -> "Leído"
+                                                                MessageDeliveryStatus.DELIVERED -> "Entregado"
+                                                                MessageDeliveryStatus.SENT -> "Enviado"
+                                                            },
                                                             tint = listCheckColor,
                                                             modifier = Modifier.size(14.dp)
                                                         )
@@ -1734,7 +1751,7 @@ private fun ChatRoomScreen(
 
     LaunchedEffect(
         chat.id,
-        messages.lastOrNull()?.id,
+        messages,
         chat.unreadCounts[currentUser.userId],
         readReceiptsEnabled
     ) {
@@ -1744,6 +1761,11 @@ private fun ChatRoomScreen(
         if (unread > 0L || lastFromPeer || needsReceipt) {
             chatViewModel.markChatRead(chat, sendReadReceipt = readReceiptsEnabled)
         }
+        chatViewModel.acknowledgeMessagesInOpenChat(
+            chat = chat,
+            messages = messages,
+            readReceiptsEnabled = readReceiptsEnabled
+        )
     }
 
     // Recipient automatically confirms reading armed bomb messages once rendered in the open chat
@@ -4527,24 +4549,35 @@ private fun ChatMessageBubbleBody(
                                 }
                             )
                             if (isMine) {
-                                val isRead = ChatViewModel.isMessageReadByPeer(
+                                val deliveryStatus = ChatViewModel.resolveMessageDeliveryStatus(
                                     chat = chat,
-                                    messageCreatedAt = msg.createdAt,
+                                    message = msg,
                                     currentUid = currentUser.userId,
                                     readReceiptsEnabled = readReceiptsEnabled
                                 )
                                 val checkTint by animateColorAsState(
-                                    targetValue = if (isRead) {
-                                        if (isBombArmed) Color(0xFF67E8F9) else Color(0xFF38BDF8)
-                                    } else {
-                                        Color.White.copy(alpha = 0.65f)
+                                    targetValue = when (deliveryStatus) {
+                                        MessageDeliveryStatus.READ ->
+                                            if (isBombArmed) Color(0xFF67E8F9) else Color(0xFF38BDF8)
+                                        MessageDeliveryStatus.DELIVERED ->
+                                            Color.White.copy(alpha = 0.74f)
+                                        MessageDeliveryStatus.SENT ->
+                                            Color.White.copy(alpha = 0.56f)
                                     },
                                     animationSpec = tween(220),
                                     label = "msg_read_tint"
                                 )
                                 Icon(
-                                    imageVector = Icons.Filled.DoneAll,
-                                    contentDescription = if (isRead) "Leído" else "Enviado",
+                                    imageVector = if (deliveryStatus == MessageDeliveryStatus.SENT) {
+                                        Icons.Filled.Done
+                                    } else {
+                                        Icons.Filled.DoneAll
+                                    },
+                                    contentDescription = when (deliveryStatus) {
+                                        MessageDeliveryStatus.READ -> "Leído"
+                                        MessageDeliveryStatus.DELIVERED -> "Entregado"
+                                        MessageDeliveryStatus.SENT -> "Enviado"
+                                    },
                                     tint = checkTint,
                                     modifier = Modifier
                                         .size(14.dp)

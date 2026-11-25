@@ -24,12 +24,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.BuildConfig
+import com.example.core.MapsConfigHelper
 import com.example.data.model.PrivateLocationInfo
 import com.example.ui.theme.LocalVybColors
 import com.example.ui.theme.VybElectricBlue
@@ -49,9 +51,9 @@ fun VybMapsPanel(
     locationInfo: PrivateLocationInfo?,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val vybColors = LocalVybColors.current
-    val mapsApiKey = BuildConfig.MAPS_API_KEY
-    val hasValidMapsKey = mapsApiKey.isNotBlank() && mapsApiKey != "MY_MAPS_API_KEY"
+    val hasValidMapsKey = remember(context) { MapsConfigHelper.hasValidMapsApiKey(context) }
 
     Card(
         shape = RoundedCornerShape(18.dp),
@@ -134,7 +136,7 @@ fun VybMapsPanel(
                         Spacer(Modifier.width(12.dp))
                         Text(
                             text = if (!hasValidMapsKey) {
-                                "Configura MAPS_API_KEY en el panel Secrets de AI Studio para visualizar el mapa interactivo de Google Maps."
+                                "Configura MAPS_API_KEY en el panel Secrets (y en GitHub Secrets si compilas el APK vía CI) para visualizar el mapa interactivo de Google Maps."
                             } else {
                                 "Activa tu ubicación privada para centrar el mapa en tu zona sin compartirla públicamente."
                             },

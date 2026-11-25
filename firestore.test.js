@@ -1943,3 +1943,105 @@ test("24. Chunked media uploads (vybmedia_files) enforce owner writes, scope rea
   await assertSucceeds(bobDb.collection("vybmedia_files").doc("med_post_123").collection("chunks").doc("chunk_0").get());
   await assertFails(bobDb.collection("vybmedia_files").doc("med_post_123").delete());
 });
+
+test("25. Chat and message delivery/read ACKs (lastDeliveredAt, deliveredTo, readBy) enforce self-only updates", async () => {
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
+  const charlieDb = testEnv.authenticatedContext(CHARLIE_UID).firestore();
+  const ts = pastDate();
+
+  await assertSucceeds(
+    aliceDb.collection("chats").doc("dm_ack_1").set({
+      participantUids: [ALICE_UID, BOB_UID],
+      participantNames: { [ALICE_UID]: "Alicia", [BOB_UID]: "Bob" },
+      chatType: "direct",
+      lastMessageText: "Hola Bob",
+      lastMessageSenderId: ALICE_UID,
+      unreadCounts: { [ALICE_UID]: 0, [BOB_UID]: 1 },
+      lastDeliveredAt: { [ALICE_UID]: ts },
+      lastReadAt: { [ALICE_UID]: ts },
+      createdBy: ALICE_UID,
+      lastMessageAt: ts,
+      createdAt: ts,
+      updatedAt: ts,
+    })
+  );
+
+  // Sender initializes deliveredTo & readBy with self UID only
+  await assertSucceeds(
+    aliceDb.collection("chats").doc("dm_ack_1").collection("messages").doc("msg_ack_1").set({
+      chatId: "dm_ack_1",
+      participantUids: [ALICE_UID, BOB_UID],
+      senderId: ALICE_UID,
+      senderName: "Alicia",
+      messageType: "text",
+      text: "Hola Bob",
+      deliveredTo: [ALICE_UID],
+      readBy: [ALICE_UID],
+      createdAt: ts,
+      updatedAt: ts,
+    })
+  );
+
+  // Alice cannot pre-mark Bob as delivered on message creation
+  await assertFails(
+    aliceDb.collection("chats").doc("dm_ack_1").collection("messages").doc("msg_spoof").set({
+      chatId: "dm_ack_1",
+      participantUids: [ALICE_UID, BOB_UID],
+      senderId: ALICE_UID,
+      senderName: "Alicia",
+      messageType: "text",
+      text: "Spoof",
+      deliveredTo: [ALICE_UID, BOB_UID],
+      readBy: [ALICE_UID],
+      createdAt: ts,
+      updatedAt: ts,
+    })
+  );
+
+  // Bob acknowledges delivery on chat & message
+  const ackTs = pastDate();
+  await assertSucceeds(
+    bobDb.collection("chats").doc("dm_ack_1").update({
+      lastDeliveredAt: { [ALICE_UID]: ts, [BOB_UID]: ackTs },
+      updatedAt: ackTs,
+    })
+  );
+  await assertSucceeds(
+    bobDb.collection("chats").doc("dm_ack_1").collection("messages").doc("msg_ack_1").update({
+      deliveredTo: [ALICE_UID, BOB_UID],
+      updatedAt: ackTs,
+    })
+  );
+
+  // Bob marks message read
+  const readTs = pastDate();
+  await assertSucceeds(
+    bobDb.collection("chats").doc("dm_ack_1").collection("messages").doc("msg_ack_1").update({
+      deliveredTo: [ALICE_UID, BOB_UID],
+      readBy: [ALICE_UID, BOB_UID],
+      updatedAt: readTs,
+    })
+  );
+
+  // Bob cannot spoof Charlie into deliveredTo or overwrite Alice's lastDeliveredAt
+  await assertFails(
+    bobDb.collection("chats").doc("dm_ack_1").collection("messages").doc("msg_ack_1").update({
+      deliveredTo: [ALICE_UID, BOB_UID, CHARLIE_UID],
+      updatedAt: pastDate(),
+    })
+  );
+  await assertFails(
+    bobDb.collection("chats").doc("dm_ack_1").update({
+      lastDeliveredAt: { [ALICE_UID]: pastDate(), [BOB_UID]: ackTs },
+      updatedAt: pastDate(),
+    })
+  );
+  await assertFails(
+    charlieDb.collection("chats").doc("dm_ack_1").collection("messages").doc("msg_ack_1").update({
+      deliveredTo: [ALICE_UID, BOB_UID, CHARLIE_UID],
+      updatedAt: pastDate(),
+    })
+  );
+});
+

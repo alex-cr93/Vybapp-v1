@@ -899,16 +899,130 @@ class ChatRepository(
         }
     }
 
+    private fun isTimestampBefore(earlier: Timestamp?, later: Timestamp?): Boolean {
+        if (later == null) return false
+        if (earlier == null) return true
+        return earlier.seconds < later.seconds ||
+            (earlier.seconds == later.seconds && earlier.nanoseconds < later.nanoseconds)
+    }
+
+    suspend fun acknowledgeChatDelivered(
+        chatId: String,
+        messageIds: List<String> = emptyList()
+    ): Result<Unit> {
+        val uid = auth.currentUser?.uid ?: return Result.success(Unit)
+        if (chatId.isBlank()) return Result.success(Unit)
+        val chatRef = db.collection("chats").document(chatId)
+        return try {
+            db.runTransaction { tx ->
+                val snap = tx.get(chatRef)
+                if (!snap.exists()) return@runTransaction null
+                val participants = (snap.get("participantUids") as? List<*>)
+                    ?.mapNotNull { it as? String }
+                    ?: emptyList()
+                if (uid !in participants) return@runTransaction null
+                val lastSender = snap.getString("lastMessageSenderId")
+                val lastMsgAt = snap.getTimestamp("lastMessageAt")
+                val rawDeliveredAt = (snap.get("lastDeliveredAt") as? Map<*, *>) ?: emptyMap<String, Any>()
+                val currentDeliveredTs = rawDeliveredAt[uid] as? Timestamp
+                if (lastSender != uid && isTimestampBefore(currentDeliveredTs, lastMsgAt)) {
+                    val updatedDeliveredAt = rawDeliveredAt.entries
+                        .mapNotNull { (k, v) ->
+                            val key = k as? String ?: return@mapNotNull null
+                            val value = v ?: return@mapNotNull null
+                            key to value
+                        }
+                        .toMap()
+                        .toMutableMap()
+                    updatedDeliveredAt[uid] = FieldValue.serverTimestamp()
+                    tx.update(
+                        chatRef,
+                        mapOf(
+                            "lastDeliveredAt" to updatedDeliveredAt,
+                            "updatedAt" to FieldValue.serverTimestamp()
+                        )
+                    )
+                }
+                null
+            }.await()
+
+            val targetMsgIds = if (messageIds.isNotEmpty()) {
+                messageIds.filter { it.isNotBlank() }.distinct().take(30)
+            } else {
+                val recentSnaps = chatRef.collection("messages")
+                    .whereArrayContains("participantUids", uid)
+                    .limit(15)
+                    .get()
+                    .await()
+                recentSnaps.documents.mapNotNull { doc ->
+                    val senderId = doc.getString("senderId")
+                    val deleted = doc.getBoolean("deletedForEveryone") == true
+                    val delivered = (doc.get("deliveredTo") as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+                    if (!deleted && senderId != uid && uid !in delivered) doc.id else null
+                }
+            }
+
+            targetMsgIds.forEach { msgId ->
+                runCatching {
+                    chatRef.collection("messages").document(msgId).update(
+                        mapOf(
+                            "deliveredTo" to FieldValue.arrayUnion(uid),
+                            "updatedAt" to FieldValue.serverTimestamp()
+                        )
+                    ).await()
+                }
+            }
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, "chats/$chatId")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun acknowledgeMessagesRead(
+        chatId: String,
+        messageIds: List<String>,
+        sendReadReceipt: Boolean
+    ): Result<Unit> {
+        val uid = auth.currentUser?.uid ?: return Result.success(Unit)
+        val cleanIds = messageIds.filter { it.isNotBlank() }.distinct().take(30)
+        if (chatId.isBlank() || cleanIds.isEmpty()) return Result.success(Unit)
+        val msgsCol = db.collection("chats").document(chatId).collection("messages")
+        return try {
+            cleanIds.forEach { msgId ->
+                val updates = mutableMapOf<String, Any>(
+                    "deliveredTo" to FieldValue.arrayUnion(uid),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+                if (sendReadReceipt) {
+                    updates["readBy"] = FieldValue.arrayUnion(uid)
+                }
+                runCatching {
+                    msgsCol.document(msgId).update(updates).await()
+                }
+            }
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun markChatRead(chat: Chat, sendReadReceipt: Boolean = true): Result<Unit> {
         val uid = auth.currentUser?.uid ?: return Result.failure(IllegalStateException("Sin sesión"))
         val hasUnread = (chat.unreadCounts[uid] ?: 0L) > 0L
-        val myLastRead = chat.lastReadAt[uid]
         val lastMsgAt = chat.lastMessageAt
+        val myLastDelivered = chat.lastDeliveredAt[uid]
+        val myLastRead = chat.lastReadAt[uid]
+        val needsDeliveryTimestamp = chat.lastMessageSenderId != uid && isTimestampBefore(myLastDelivered, lastMsgAt)
         val needsReadTimestamp = sendReadReceipt &&
             chat.lastMessageSenderId != uid &&
-            (myLastRead == null || (lastMsgAt != null && (myLastRead.seconds < lastMsgAt.seconds || (myLastRead.seconds == lastMsgAt.seconds && myLastRead.nanoseconds < lastMsgAt.nanoseconds))))
+            isTimestampBefore(myLastRead, lastMsgAt)
 
-        if (!hasUnread && !needsReadTimestamp) return Result.success(Unit)
+        if (!hasUnread && !needsReadTimestamp && !needsDeliveryTimestamp) return Result.success(Unit)
         val chatRef = db.collection("chats").document(chat.id)
         return try {
             db.runTransaction { tx ->
@@ -925,8 +1039,20 @@ class ChatRepository(
                     .toMutableMap()
                 updatedCounts[uid] = 0L
 
+                val rawDeliveredAt = (snap.get("lastDeliveredAt") as? Map<*, *>) ?: emptyMap<String, Any>()
+                val updatedDeliveredAt = rawDeliveredAt.entries
+                    .mapNotNull { (k, v) ->
+                        val key = k as? String ?: return@mapNotNull null
+                        val value = v ?: return@mapNotNull null
+                        key to value
+                    }
+                    .toMap()
+                    .toMutableMap()
+                updatedDeliveredAt[uid] = FieldValue.serverTimestamp()
+
                 val updates = mutableMapOf<String, Any>(
                     "unreadCounts" to updatedCounts,
+                    "lastDeliveredAt" to updatedDeliveredAt,
                     "updatedAt" to FieldValue.serverTimestamp()
                 )
                 if (sendReadReceipt) {
@@ -1674,6 +1800,17 @@ class ChatRepository(
                     .toMutableMap()
                 updatedReadAt[uid] = FieldValue.serverTimestamp()
 
+                val rawDeliveredAt = (chatSnap.get("lastDeliveredAt") as? Map<*, *>) ?: emptyMap<String, Any>()
+                val updatedDeliveredAt = rawDeliveredAt.entries
+                    .mapNotNull { (k, v) ->
+                        val key = k as? String ?: return@mapNotNull null
+                        val value = v ?: return@mapNotNull null
+                        key to value
+                    }
+                    .toMap()
+                    .toMutableMap()
+                updatedDeliveredAt[uid] = FieldValue.serverTimestamp()
+
                 val msgData = mapOf(
                     "chatId" to chat.id,
                     "participantUids" to liveParticipants,
@@ -1681,6 +1818,8 @@ class ChatRepository(
                     "senderName" to sender.displayName.trim().ifBlank { "Usuario VYB" }.take(60),
                     "messageType" to "buzz",
                     "text" to "Bip",
+                    "deliveredTo" to listOf(uid),
+                    "readBy" to listOf(uid),
                     "createdAt" to FieldValue.serverTimestamp(),
                     "updatedAt" to FieldValue.serverTimestamp()
                 )
@@ -1700,6 +1839,7 @@ class ChatRepository(
                         "lastMessageSenderId" to uid,
                         "lastMessageAt" to FieldValue.serverTimestamp(),
                         "unreadCounts" to updatedCounts,
+                        "lastDeliveredAt" to updatedDeliveredAt,
                         "lastReadAt" to updatedReadAt,
                         "hiddenForUids" to emptyList<String>(),
                         "updatedAt" to FieldValue.serverTimestamp()
@@ -1738,6 +1878,8 @@ class ChatRepository(
                 ?: listOf(senderUid)
 
             baseCleanMsg["participantUids"] = liveParticipants
+            baseCleanMsg["deliveredTo"] = listOf(senderUid)
+            baseCleanMsg["readBy"] = listOf(senderUid)
 
             val rawCounts = (chatSnap.get("unreadCounts") as? Map<*, *>) ?: emptyMap<String, Any>()
             val updatedCounts = liveParticipants.associateWith { participant ->
@@ -1756,6 +1898,17 @@ class ChatRepository(
                 .toMutableMap()
             updatedReadAt[senderUid] = FieldValue.serverTimestamp()
 
+            val rawDeliveredAt = (chatSnap.get("lastDeliveredAt") as? Map<*, *>) ?: emptyMap<String, Any>()
+            val updatedDeliveredAt = rawDeliveredAt.entries
+                .mapNotNull { (k, v) ->
+                    val key = k as? String ?: return@mapNotNull null
+                    val value = v ?: return@mapNotNull null
+                    key to value
+                }
+                .toMap()
+                .toMutableMap()
+            updatedDeliveredAt[senderUid] = FieldValue.serverTimestamp()
+
             tx.set(msgRef, baseCleanMsg)
             tx.update(
                 chatRef,
@@ -1764,6 +1917,7 @@ class ChatRepository(
                     "lastMessageSenderId" to senderUid,
                     "lastMessageAt" to FieldValue.serverTimestamp(),
                     "unreadCounts" to updatedCounts,
+                    "lastDeliveredAt" to updatedDeliveredAt,
                     "lastReadAt" to updatedReadAt,
                     "hiddenForUids" to emptyList<String>(),
                     "updatedAt" to FieldValue.serverTimestamp()

@@ -564,10 +564,12 @@ private fun PrivacyAndAlertsSubmenuContent(
 
     val lifecycleOwner = LocalLifecycleOwner.current
     var hasNotifPerm by remember { mutableStateOf(NotificationHelper.hasNotificationPermission(context)) }
+    var isIgnoringBatteryOpt by remember { mutableStateOf(NotificationHelper.isIgnoringBatteryOptimizations(context)) }
     DisposableEffect(lifecycleOwner, context) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 hasNotifPerm = NotificationHelper.hasNotificationPermission(context)
+                isIgnoringBatteryOpt = NotificationHelper.isIgnoringBatteryOptimizations(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -637,6 +639,72 @@ private fun PrivacyAndAlertsSubmenuContent(
                         ) {
                             Text("Permitir notificaciones push")
                         }
+                    }
+                }
+            }
+        }
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = vybColors.nestedSurface,
+            border = BorderStroke(0.75.dp, vybColors.hairlineBorder),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("profile_battery_opt_card")
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Segundo plano y batería",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = if (isIgnoringBatteryOpt) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.secondaryContainer
+                        }
+                    ) {
+                        Text(
+                            text = if (isIgnoringBatteryOpt) "Sin restricciones" else "Optimizada",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isIgnoringBatteryOpt) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSecondaryContainer
+                            },
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+                Text(
+                    text = if (isIgnoringBatteryOpt) {
+                        "VYB puede recibir notificaciones de mensajes normales aunque la app esté cerrada."
+                    } else {
+                        "Permite batería sin restricciones para que los mensajes normales lleguen al instante con la app cerrada."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = vybColors.secondaryText
+                )
+                if (!isIgnoringBatteryOpt) {
+                    OutlinedButton(
+                        onClick = { NotificationHelper.openBatteryOptimizationSettings(context) },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("profile_battery_opt_button")
+                    ) {
+                        Text("Excluir de ahorro de batería")
                     }
                 }
             }

@@ -48,6 +48,7 @@ class VybBackgroundNotificationWorker(
                 .get()
                 .await()
 
+            val chatRepo = com.example.data.repository.ChatRepository(applicationContext)
             chatSnaps.documents.forEach { doc ->
                 val chat = doc.toObject(Chat::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
                     ?: return@forEach
@@ -55,6 +56,7 @@ class VybBackgroundNotificationWorker(
                 val unread = chat.unreadCounts[uid] ?: 0L
                 val tsMillis = chat.lastMessageAt?.let { it.seconds * 1000L + it.nanoseconds / 1_000_000L } ?: 0L
                 if (unread > 0L && chat.lastMessageSenderId != uid && tsMillis > 0L) {
+                    runCatching { chatRepo.acknowledgeChatDelivered(chat.id) }
                     val isSinpe = chat.lastMessageText.contains("SINPE", ignoreCase = true) ||
                         chat.lastMessageText.contains("₡")
                     val isBuzz = ChatViewModel.isBuzzPreviewText(chat.lastMessageText)
@@ -76,7 +78,7 @@ class VybBackgroundNotificationWorker(
                                 },
                                 title = title,
                                 body = body,
-                                notificationId = chat.id.hashCode(),
+                                notificationId = eventKey.hashCode(),
                                 targetChatId = chat.id
                             )
                         }

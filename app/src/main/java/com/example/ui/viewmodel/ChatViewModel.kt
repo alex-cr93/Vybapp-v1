@@ -57,6 +57,12 @@ enum class ChatFilter(val label: String) {
     REQUESTS("Solicitudes")
 }
 
+enum class MessageDeliveryStatus {
+    SENT,
+    DELIVERED,
+    READ
+}
+
 class ChatViewModel(
     private val chatRepository: ChatRepository,
     private val userRepository: UserRepository,
@@ -108,6 +114,8 @@ class ChatViewModel(
     private val _explodedBombTombstones = MutableStateFlow<Map<String, List<ChatMessage>>>(emptyMap())
     private val cachedMessagesByChat = ConcurrentHashMap<String, List<ChatMessage>>()
     private val liveLocationTrackerJobs = mutableMapOf<String, Job>()
+    private val ackedChatDeliveryMillis = mutableMapOf<String, Long>()
+    private val ackedMessageReceiptKeys = mutableSetOf<String>()
 
     private val _isStartingLiveLocation = MutableStateFlow(false)
     val isStartingLiveLocation: StateFlow<Boolean> = _isStartingLiveLocation.asStateFlow()
@@ -364,6 +372,54 @@ class ChatViewModel(
 
     fun markChatRead(chat: Chat, sendReadReceipt: Boolean = true) {
         viewModelScope.launch { chatRepository.markChatRead(chat, sendReadReceipt) }
+    }
+
+    fun acknowledgeChatsDelivered(chats: List<Chat>) {
+        if (currentUserId.isBlank()) return
+        chats.forEach { chat ->
+            val msgTs = chat.lastMessageAt ?: return@forEach
+            if (chat.lastMessageSenderId == currentUserId) return@forEach
+            val lastDelivered = chat.lastDeliveredAt[currentUserId]
+            val needsAck = lastDelivered == null ||
+                lastDelivered.seconds < msgTs.seconds ||
+                (lastDelivered.seconds == msgTs.seconds && lastDelivered.nanoseconds < msgTs.nanoseconds)
+            if (!needsAck) return@forEach
+            val tsMillis = msgTs.seconds * 1000L + msgTs.nanoseconds / 1_000_000L
+            val prevAcked = ackedChatDeliveryMillis[chat.id] ?: -1L
+            if (tsMillis <= prevAcked) return@forEach
+            ackedChatDeliveryMillis[chat.id] = tsMillis
+            viewModelScope.launch {
+                chatRepository.acknowledgeChatDelivered(chat.id)
+            }
+        }
+    }
+
+    fun acknowledgeMessagesInOpenChat(
+        chat: Chat,
+        messages: List<ChatMessage>,
+        readReceiptsEnabled: Boolean
+    ) {
+        if (currentUserId.isBlank()) return
+        val pendingIds = messages.mapNotNull { msg ->
+            if (msg.id.isBlank() || msg.senderId == currentUserId || msg.deletedForEveryone == true) {
+                return@mapNotNull null
+            }
+            val needsDelivery = currentUserId !in msg.deliveredTo
+            val needsRead = readReceiptsEnabled && currentUserId !in msg.readBy
+            if (!needsDelivery && !needsRead) return@mapNotNull null
+            val cacheKey = "${msg.id}_$readReceiptsEnabled"
+            if (!ackedMessageReceiptKeys.add(cacheKey)) return@mapNotNull null
+            msg.id
+        }
+        if (pendingIds.isNotEmpty()) {
+            viewModelScope.launch {
+                chatRepository.acknowledgeMessagesRead(
+                    chatId = chat.id,
+                    messageIds = pendingIds,
+                    sendReadReceipt = readReceiptsEnabled
+                )
+            }
+        }
     }
 
     fun clearError() {
@@ -1249,6 +1305,63 @@ class ChatViewModel(
             return chat.participantAvatars[peerUid]
         }
 
+        private fun isTimestampAtOrAfter(candidate: Timestamp?, target: Timestamp?): Boolean {
+            if (candidate == null || target == null) return false
+            return candidate.seconds > target.seconds ||
+                (candidate.seconds == target.seconds && candidate.nanoseconds >= target.nanoseconds)
+        }
+
+        fun resolveChatLastMessageStatus(
+            chat: Chat,
+            currentUid: String,
+            readReceiptsEnabled: Boolean
+        ): MessageDeliveryStatus {
+            val msgTs = chat.lastMessageAt ?: return MessageDeliveryStatus.SENT
+            val otherParticipants = chat.participantUids.filter { it != currentUid }
+            if (otherParticipants.isEmpty()) return MessageDeliveryStatus.SENT
+
+            if (readReceiptsEnabled) {
+                val isRead = otherParticipants.any { peerUid ->
+                    val peerUnread = chat.unreadCounts[peerUid] ?: 0L
+                    peerUnread == 0L && isTimestampAtOrAfter(chat.lastReadAt[peerUid], msgTs)
+                }
+                if (isRead) return MessageDeliveryStatus.READ
+            }
+
+            val isDelivered = otherParticipants.any { peerUid ->
+                isTimestampAtOrAfter(chat.lastDeliveredAt[peerUid], msgTs) ||
+                    isTimestampAtOrAfter(chat.lastReadAt[peerUid], msgTs)
+            }
+            return if (isDelivered) MessageDeliveryStatus.DELIVERED else MessageDeliveryStatus.SENT
+        }
+
+        fun resolveMessageDeliveryStatus(
+            chat: Chat,
+            message: ChatMessage,
+            currentUid: String,
+            readReceiptsEnabled: Boolean
+        ): MessageDeliveryStatus {
+            val otherParticipants = chat.participantUids.filter { it != currentUid }
+            if (otherParticipants.isEmpty()) return MessageDeliveryStatus.SENT
+
+            val msgTs = message.createdAt
+            if (readReceiptsEnabled) {
+                val readByPeer = otherParticipants.any { it in message.readBy } ||
+                    (msgTs != null && otherParticipants.any { peerUid ->
+                        val peerUnread = chat.unreadCounts[peerUid] ?: 0L
+                        peerUnread == 0L && isTimestampAtOrAfter(chat.lastReadAt[peerUid], msgTs)
+                    })
+                if (readByPeer) return MessageDeliveryStatus.READ
+            }
+
+            val deliveredToPeer = otherParticipants.any { it in message.deliveredTo } ||
+                (msgTs != null && otherParticipants.any { peerUid ->
+                    isTimestampAtOrAfter(chat.lastDeliveredAt[peerUid], msgTs) ||
+                        isTimestampAtOrAfter(chat.lastReadAt[peerUid], msgTs)
+                })
+            return if (deliveredToPeer) MessageDeliveryStatus.DELIVERED else MessageDeliveryStatus.SENT
+        }
+
         fun isMessageReadByPeer(
             chat: Chat,
             messageCreatedAt: com.google.firebase.Timestamp?,
@@ -1261,14 +1374,7 @@ class ChatViewModel(
             if (otherParticipants.isEmpty()) return false
             return otherParticipants.any { peerUid ->
                 val peerUnread = chat.unreadCounts[peerUid] ?: 0L
-                val peerRead = chat.lastReadAt[peerUid]
-                if (peerRead != null) {
-                    val isReadAfterMsg = peerRead.seconds > msgTs.seconds ||
-                        (peerRead.seconds == msgTs.seconds && peerRead.nanoseconds >= msgTs.nanoseconds)
-                    isReadAfterMsg && peerUnread == 0L
-                } else {
-                    false
-                }
+                peerUnread == 0L && isTimestampAtOrAfter(chat.lastReadAt[peerUid], msgTs)
             }
         }
 

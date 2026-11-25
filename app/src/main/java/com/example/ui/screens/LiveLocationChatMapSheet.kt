@@ -59,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,6 +70,7 @@ import com.example.BuildConfig
 import com.example.core.LiveLocationCluster
 import com.example.core.LiveLocationClusterer
 import com.example.core.LocationHelper
+import com.example.core.MapsConfigHelper
 import com.example.data.model.Chat
 import com.example.data.model.LiveLocationScope
 import com.example.data.model.LiveLocationShare
@@ -188,10 +190,10 @@ fun LiveLocationChatMapSheet(
 ) {
     BackHandler { onDismiss() }
 
+    val context = LocalContext.current
     val vybColors = LocalVybColors.current
     val scope = rememberCoroutineScope()
-    val mapsApiKey = BuildConfig.MAPS_API_KEY
-    val hasValidMapsKey = mapsApiKey.isNotBlank() && mapsApiKey != "MY_MAPS_API_KEY"
+    val hasValidMapsKey = remember(context) { MapsConfigHelper.hasValidMapsApiKey(context) }
 
     val privacyScope = LiveLocationScope.fromKey(privateUser?.liveLocationScope)
     val defaultDuration = (privateUser?.liveLocationDurationMin ?: 60L).toInt().coerceIn(5, 480)
@@ -418,7 +420,7 @@ fun LiveLocationChatMapSheet(
                                         tint = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
-                                        text = "Configura MAPS_API_KEY en el panel Secrets de AI Studio para renderizar el mapa interactivo de Google Maps.",
+                                        text = "Configura MAPS_API_KEY en el panel Secrets (y en GitHub Secrets si compilas el APK vía CI) para renderizar el mapa interactivo de Google Maps.",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = vybColors.secondaryText
                                     )

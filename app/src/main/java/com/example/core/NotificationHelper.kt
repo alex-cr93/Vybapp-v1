@@ -8,7 +8,12 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
@@ -25,6 +30,7 @@ data class NotificationNavTarget(
 
 object NotificationHelper {
     const val CHANNEL_CHAT = "vyb_chat_channel"
+    const val CHANNEL_BUZZ = "vyb_buzz_channel"
     const val CHANNEL_CALL = "vyb_call_channel"
     const val CHANNEL_SINPE = "vyb_sinpe_channel"
     const val CHANNEL_REQUEST = "vyb_request_channel"
@@ -46,9 +52,36 @@ object NotificationHelper {
         ) == PackageManager.PERMISSION_GRANTED
     }
 
+    fun isIgnoringBatteryOptimizations(context: Context): Boolean {
+        val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return true
+        return pm.isIgnoringBatteryOptimizations(context.packageName)
+    }
+
+    fun openBatteryOptimizationSettings(context: Context) {
+        val batteryIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        val fallbackIntent = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", context.packageName, null)
+        ).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        runCatching {
+            context.startActivity(batteryIntent)
+        }.onFailure {
+            runCatching { context.startActivity(fallbackIntent) }
+        }
+    }
+
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val defaultSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val msgAudioAttrs = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
             nm.createNotificationChannels(
                 listOf(
                     NotificationChannel(
@@ -57,8 +90,22 @@ object NotificationHelper {
                         NotificationManager.IMPORTANCE_HIGH
                     ).apply {
                         description = "Notificaciones push de mensajes directos y grupales"
+                        enableLights(true)
                         enableVibration(true)
                         setShowBadge(true)
+                        setSound(defaultSound, msgAudioAttrs)
+                        lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+                    },
+                    NotificationChannel(
+                        CHANNEL_BUZZ,
+                        "Alertas Bip",
+                        NotificationManager.IMPORTANCE_HIGH
+                    ).apply {
+                        description = "Alertas instantáneas tipo Bip en VYB"
+                        enableLights(true)
+                        enableVibration(true)
+                        setShowBadge(true)
+                        setSound(defaultSound, msgAudioAttrs)
                         lockscreenVisibility = Notification.VISIBILITY_PRIVATE
                     },
                     NotificationChannel(
@@ -67,6 +114,7 @@ object NotificationHelper {
                         NotificationManager.IMPORTANCE_HIGH
                     ).apply {
                         description = "Alertas de llamadas de voz y videollamadas VYB"
+                        enableLights(true)
                         enableVibration(true)
                         setShowBadge(true)
                         lockscreenVisibility = Notification.VISIBILITY_PUBLIC
@@ -77,8 +125,10 @@ object NotificationHelper {
                         NotificationManager.IMPORTANCE_HIGH
                     ).apply {
                         description = "Cobros y confirmaciones SINPE en tus chats"
+                        enableLights(true)
                         enableVibration(true)
                         setShowBadge(true)
+                        setSound(defaultSound, msgAudioAttrs)
                         lockscreenVisibility = Notification.VISIBILITY_PRIVATE
                     },
                     NotificationChannel(
@@ -87,8 +137,10 @@ object NotificationHelper {
                         NotificationManager.IMPORTANCE_HIGH
                     ).apply {
                         description = "Nuevas solicitudes de conexión en VYB"
+                        enableLights(true)
                         enableVibration(true)
                         setShowBadge(true)
+                        setSound(defaultSound, msgAudioAttrs)
                         lockscreenVisibility = Notification.VISIBILITY_PRIVATE
                     }
                 )
@@ -113,6 +165,7 @@ object NotificationHelper {
             "call" -> CHANNEL_CALL
             "sinpe" -> CHANNEL_SINPE
             "request" -> CHANNEL_REQUEST
+            "buzz" -> CHANNEL_BUZZ
             else -> CHANNEL_CHAT
         }
         val category = when (channelType) {
@@ -148,6 +201,9 @@ object NotificationHelper {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setWhen(System.currentTimeMillis())
+            .setShowWhen(true)
+            .setOnlyAlertOnce(false)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
 

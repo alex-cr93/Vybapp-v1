@@ -1,0 +1,12 @@
+{
+  "name": "vyb-push-functions",
+  "description": "Cloud Functions v2 for high-priority FCM push notifications on VYB chat messages",
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^6.1.0"
+  }
+}

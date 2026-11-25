@@ -1,11 +1,13 @@
 package com.example
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import com.example.core.LiveLocationClusterer
 import com.example.data.model.Chat
 import com.example.data.model.LiveLocationScope
@@ -124,11 +126,11 @@ class LiveLocationAndChatInteractionsRobolectricTest: BaseRobolectricTest() {
                 )
             }
         }
-         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("chat_ctx_open").performScrollTo().assertIsDisplayed().performClick()
-        composeRule.onNodeWithTag("chat_ctx_buzz").performScrollTo().assertIsDisplayed().performClick()
-        composeRule.onNodeWithTag("chat_ctx_block").performScrollTo().assertIsDisplayed().performClick()
-        composeRule.onNodeWithTag("chat_ctx_delete").performScrollTo().assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("chat_ctx_open").performScrollTo().assertIsDisplayed().performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("chat_ctx_buzz").performScrollTo().assertIsDisplayed().performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("chat_ctx_block").performScrollTo().assertIsDisplayed().performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("chat_ctx_delete").performScrollTo().assertIsDisplayed().performSemanticsAction(SemanticsActions.OnClick)
 
         assertTrue(opened)
         assertTrue(buzzed)
@@ -137,8 +139,8 @@ class LiveLocationAndChatInteractionsRobolectricTest: BaseRobolectricTest() {
 
         useGroup.value = true
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("chat_ctx_leave_group").performScrollTo().assertIsDisplayed().performClick()
-        composeRule.onNodeWithTag("chat_ctx_delete_group").performScrollTo().assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("chat_ctx_leave_group").performScrollTo().assertIsDisplayed().performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag("chat_ctx_delete_group").performScrollTo().assertIsDisplayed().performSemanticsAction(SemanticsActions.OnClick)
         assertTrue(leftGroup)
         assertTrue(deletedGroup)
     }

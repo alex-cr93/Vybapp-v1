@@ -293,6 +293,7 @@ data class Chat(
     val lastMessageText: String = "",
     val lastMessageSenderId: String? = null,
     val unreadCounts: Map<String, Long> = emptyMap(),
+    val lastDeliveredAt: Map<String, Timestamp> = emptyMap(),
     val lastReadAt: Map<String, Timestamp> = emptyMap(),
     val buzzCounts: Map<String, Long> = emptyMap(),
     val hiddenForUids: List<String> = emptyList(),
@@ -368,6 +369,8 @@ data class ChatMessage(
     val bombDurationSec: Long? = null,
     val bombTriggeredAt: Timestamp? = null,
     val reactions: Map<String, List<String>> = emptyMap(),
+    val deliveredTo: List<String> = emptyList(),
+    val readBy: List<String> = emptyList(),
     @ServerTimestamp val createdAt: Timestamp? = null,
     @ServerTimestamp val updatedAt: Timestamp? = null
 )

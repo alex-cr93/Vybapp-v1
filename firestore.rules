@@ -408,6 +408,7 @@ service cloud.firestore {
              data.lastMessageText is string && data.lastMessageText.size() <= 300 &&
              (!('lastMessageSenderId' in data) || (data.lastMessageSenderId is string && data.lastMessageSenderId.size() <= 128)) &&
              data.unreadCounts is map &&
+             (!('lastDeliveredAt' in data) || data.lastDeliveredAt is map) &&
              (!('lastReadAt' in data) || data.lastReadAt is map) &&
              (!('buzzCounts' in data) || data.buzzCounts is map) &&
              (!('hiddenForUids' in data) || isBoundedStringList(data.hiddenForUids, 50)) &&
@@ -446,6 +447,15 @@ service cloud.firestore {
       );
     }
 
+    function isValidSelfChatTimestampMap(fieldName) {
+      let oldMap = (fieldName in existing() && existing()[fieldName] is map) ? existing()[fieldName] : {};
+      let newMap = (fieldName in incoming() && incoming()[fieldName] is map) ? incoming()[fieldName] : {};
+      return (fieldName in incoming()) &&
+             incoming()[fieldName] is map &&
+             newMap.diff(oldMap).affectedKeys().hasOnly([request.auth.uid]) &&
+             isValidTimestamp(newMap[request.auth.uid]);
+    }
+
     match /chats/{chatId} {
       allow get: if isSignedIn() && isValidId(chatId) && (resource == null || request.auth.uid in resource.data.participantUids);
       allow list: if isSignedIn() && request.auth.uid in resource.data.participantUids;
@@ -455,7 +465,7 @@ service cloud.firestore {
                        request.auth.uid in incoming().participantUids &&
                        incoming().participantUids.size() >= 2 &&
                        incoming().keys().hasAll(['participantUids', 'participantNames', 'chatType', 'lastMessageText', 'unreadCounts', 'createdBy', 'lastMessageAt', 'createdAt', 'updatedAt']) &&
-                       incoming().keys().hasOnly(['participantUids', 'participantNames', 'participantAvatars', 'chatType', 'title', 'lastMessageText', 'lastMessageSenderId', 'unreadCounts', 'lastReadAt', 'buzzCounts', 'hiddenForUids', 'clearedBeforeAt', 'liveLocationUids', 'createdBy', 'lastMessageAt', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['participantUids', 'participantNames', 'participantAvatars', 'chatType', 'title', 'lastMessageText', 'lastMessageSenderId', 'unreadCounts', 'lastDeliveredAt', 'lastReadAt', 'buzzCounts', 'hiddenForUids', 'clearedBeforeAt', 'liveLocationUids', 'createdBy', 'lastMessageAt', 'createdAt', 'updatedAt']) &&
                        (!('buzzCounts' in incoming()) || incoming().buzzCounts.size() == 0) &&
                        (!('hiddenForUids' in incoming()) || incoming().hiddenForUids.size() == 0) &&
                        (!('liveLocationUids' in incoming()) || incoming().liveLocationUids.size() == 0) &&
@@ -468,7 +478,8 @@ service cloud.firestore {
                        isValidChat(incoming()) &&
                        isValidBuzzCountsUpdate() &&
                        isValidLiveLocationUidsUpdate() &&
-                       incoming().diff(existing()).affectedKeys().hasOnly(['lastMessageText', 'lastMessageSenderId', 'lastMessageAt', 'unreadCounts', 'lastReadAt', 'buzzCounts', 'hiddenForUids', 'clearedBeforeAt', 'liveLocationUids', 'title', 'participantUids', 'participantNames', 'participantAvatars', 'updatedAt']);
+                       (!('lastDeliveredAt' in incoming().diff(existing()).affectedKeys()) || isValidSelfChatTimestampMap('lastDeliveredAt')) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['lastMessageText', 'lastMessageSenderId', 'lastMessageAt', 'unreadCounts', 'lastDeliveredAt', 'lastReadAt', 'buzzCounts', 'hiddenForUids', 'clearedBeforeAt', 'liveLocationUids', 'title', 'participantUids', 'participantNames', 'participantAvatars', 'updatedAt']);
       allow delete: if isSignedIn() && isValidId(chatId) && (
                        existing().createdBy == request.auth.uid ||
                        (existing().chatType == 'direct' && request.auth.uid in existing().participantUids) ||
@@ -552,8 +563,18 @@ service cloud.firestore {
              (!('deletedForEveryone' in data) || data.deletedForEveryone is bool) &&
              (!('bombDurationSec' in data) || (data.bombDurationSec is int && data.bombDurationSec >= 1 && data.bombDurationSec <= 3600)) &&
              (!('bombTriggeredAt' in data) || isValidTimestamp(data.bombTriggeredAt)) &&
+             (!('deliveredTo' in data) || isBoundedStringList(data.deliveredTo, 50)) &&
+             (!('readBy' in data) || isBoundedStringList(data.readBy, 50)) &&
              isValidTimestamp(data.createdAt) &&
              isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidSelfReceiptListUpdate(oldList, newList, uid) {
+      return oldList is list &&
+             newList is list &&
+             newList.size() <= 50 &&
+             newList.hasAll(oldList) &&
+             newList.toSet().difference(oldList.toSet()).hasOnly([uid]);
     }
 
     match /chats/{chatId}/messages/{messageId} {
@@ -565,8 +586,10 @@ service cloud.firestore {
                        incoming().chatId == chatId &&
                        request.auth.uid in incoming().participantUids &&
                        incoming().keys().hasAll(['chatId', 'participantUids', 'senderId', 'senderName', 'messageType', 'text', 'createdAt', 'updatedAt']) &&
-                       incoming().keys().hasOnly(['chatId', 'participantUids', 'senderId', 'senderName', 'messageType', 'text', 'mediaId', 'mediaType', 'mediaPreviewData', 'mediaAspectRatio', 'audioDurationSec', 'documentName', 'documentMimeType', 'documentSizeBytes', 'locationLat', 'locationLng', 'locationLabel', 'sharedContactUid', 'sharedContactName', 'sharedContactUsername', 'sharedContactAvatarUrl', 'pollQuestion', 'pollOptions', 'pollVotes', 'sinpeAmount', 'sinpePerPerson', 'sinpeReason', 'sinpeRecipientUid', 'sinpeRecipientName', 'sinpeRecipientPhone', 'sinpeRecipientBank', 'sinpeSplitCount', 'sinpeStatus', 'sinpePaidByUids', 'aiSummaryTopic', 'aiSummaryMain', 'aiSummaryDecisions', 'aiSummaryTasks', 'bombDurationSec', 'reactions', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['chatId', 'participantUids', 'senderId', 'senderName', 'messageType', 'text', 'mediaId', 'mediaType', 'mediaPreviewData', 'mediaAspectRatio', 'audioDurationSec', 'documentName', 'documentMimeType', 'documentSizeBytes', 'locationLat', 'locationLng', 'locationLabel', 'sharedContactUid', 'sharedContactName', 'sharedContactUsername', 'sharedContactAvatarUrl', 'pollQuestion', 'pollOptions', 'pollVotes', 'sinpeAmount', 'sinpePerPerson', 'sinpeReason', 'sinpeRecipientUid', 'sinpeRecipientName', 'sinpeRecipientPhone', 'sinpeRecipientBank', 'sinpeSplitCount', 'sinpeStatus', 'sinpePaidByUids', 'aiSummaryTopic', 'aiSummaryMain', 'aiSummaryDecisions', 'aiSummaryTasks', 'bombDurationSec', 'reactions', 'deliveredTo', 'readBy', 'createdAt', 'updatedAt']) &&
                        (!('reactions' in incoming()) || isValidReactionsMap(incoming().reactions)) &&
+                       (!('deliveredTo' in incoming()) || incoming().deliveredTo.hasOnly([request.auth.uid])) &&
+                       (!('readBy' in incoming()) || incoming().readBy.hasOnly([request.auth.uid])) &&
                        isValidChatMessage(incoming()) &&
                        exists(/databases/$(database)/documents/chats/$(chatId)) &&
                        request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantUids;
@@ -626,7 +649,15 @@ service cloud.firestore {
                             (('reactions' in existing()) &&
                              existing().reactions is map &&
                              isValidReactionsUpdate(existing().reactions, incoming().reactions, request.auth.uid))
-                          ))
+                          )) ||
+                         ((!('deletedForEveryone' in existing()) || existing().deletedForEveryone == false) &&
+                          request.auth.uid != existing().senderId &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['deliveredTo', 'readBy', 'updatedAt']) && (
+                            ('deliveredTo' in incoming().diff(existing()).affectedKeys()) ||
+                            ('readBy' in incoming().diff(existing()).affectedKeys())
+                          ) &&
+                          isValidSelfReceiptListUpdate(existing().get('deliveredTo', []), incoming().get('deliveredTo', []), request.auth.uid) &&
+                          isValidSelfReceiptListUpdate(existing().get('readBy', []), incoming().get('readBy', []), request.auth.uid))
                        );
       allow delete: if isSignedIn() && isValidId(messageId) && (
         existing().senderId == request.auth.uid ||

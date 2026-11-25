@@ -1,4 +1,31 @@
 import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
+import java.util.Properties
+
+fun resolveEnvSecret(root: File, key: String, gradleProp: String?, envVar: String?): String {
+  fun readKeyFromFile(file: File): String? {
+    if (!file.exists()) return null
+    val props = Properties()
+    file.inputStream().use { props.load(it) }
+    return props.getProperty(key)?.trim()?.trim('"', '\'')?.takeIf { it.isNotBlank() }
+  }
+  val placeholders = setOf("MY_MAPS_API_KEY", "MAPS_API_KEY_DEFAULT_VALUE", "YOUR_API_KEY")
+  val candidates = listOfNotNull(
+    readKeyFromFile(File(root, ".env")),
+    gradleProp?.trim()?.trim('"', '\'')?.takeIf { it.isNotBlank() },
+    envVar?.trim()?.trim('"', '\'')?.takeIf { it.isNotBlank() },
+    readKeyFromFile(File(root, ".env.example"))
+  )
+  return candidates.firstOrNull { it !in placeholders }
+    ?: candidates.firstOrNull()
+    ?: "MY_MAPS_API_KEY"
+}
+
+val resolvedMapsApiKey = resolveEnvSecret(
+  root = rootDir,
+  key = "MAPS_API_KEY",
+  gradleProp = providers.gradleProperty("MAPS_API_KEY").orNull,
+  envVar = providers.environmentVariable("MAPS_API_KEY").orNull
+)
 
 plugins {
   alias(libs.plugins.android.application)
@@ -20,7 +47,9 @@ android {
     versionCode = 1
     versionName = "1.0"
 
-    manifestPlaceholders["MAPS_API_KEY"] = "MY_MAPS_API_KEY"
+    val escapedMapsKey = resolvedMapsApiKey.replace("\\", "\\\\").replace("\"", "\\\"")
+    manifestPlaceholders["MAPS_API_KEY"] = resolvedMapsApiKey
+    buildConfigField("String", "MAPS_API_KEY", "\"$escapedMapsKey\"")
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
@@ -35,7 +64,9 @@ android {
       keyPassword = System.getenv("KEY_PASSWORD")
     }
     create("debugConfig") {
-      storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")
+      val rootDebugKeystore = file("${rootDir}/debug.keystore")
+      val userHomeDebugKeystore = file(System.getProperty("user.home") + "/.android/debug.keystore")
+      storeFile = if (rootDebugKeystore.exists()) rootDebugKeystore else userHomeDebugKeystore
       storePassword = "android"
       keyAlias = "androiddebugkey"
       keyPassword = "android"
@@ -78,6 +109,7 @@ secrets {
   propertiesFileName = ".env"
   defaultPropertiesFileName = ".env.example"
   ignoreList.add("FIREBASE_APPCHECK_DEBUG_TOKEN")
+  ignoreList.add("MAPS_API_KEY")
 }
 
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }

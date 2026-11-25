@@ -919,9 +919,12 @@ private fun VybMainScaffold(
     }
 
     // Notify on incoming message / SINPE / Buzz (system notification + in-app floating alert)
-    LaunchedEffect(rawChatsState) {
+    LaunchedEffect(rawChatsState, isOnline) {
         val chats = ((rawChatsState as? UiState.Success)?.data ?: return@LaunchedEffect)
             .filter { publicUser.userId !in it.hiddenForUids }
+        if (isOnline) {
+            chatViewModel.acknowledgeChatsDelivered(chats)
+        }
         val currentMap = chats.associate { chat ->
             val millis = chat.lastMessageAt?.let { it.seconds * 1000L + it.nanoseconds / 1_000_000L } ?: 0L
             chat.id to millis
