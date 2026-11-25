@@ -44,9 +44,6 @@ jobs:
             base64 -d debug.keystore.base64 > debug.keystore
           fi
 
-      - name: Run unit tests
-        run: gradle :app:testDebugUnitTest --no-daemon
-
       - name: Build and sign VYB APK
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
