@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>VYB — Mecha y Vaporización (Mensaje Autodestructivo)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --vyb-bg: #0B0C14;
+      --vyb-surface: #131624;
+      --vyb-violet: #5B46F6;
+      --vyb-blue: #3B66F5;
+      --stage1-left: #FF9F1C;
+      --stage1-right: #00E5FF;
+      --stage2-left: #FF5E00;
+      --stage2-right: #FF2A85;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: radial-gradient(circle at 50% 18%, #f8fafc 0%, #e2e8f0 100%);
+      color: #0f172a;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 14px 12px 20px;
+      overflow-x: hidden;
+    }
+
+    /* ==========================================================================
+       1. CHASIS MÓVIL VYB (#0B0C14)
+       ========================================================================== */
+    .phone-chassis {
+      width: 100%;
+      max-width: 392px;
+      height: 780px;
+      max-height: calc(100vh - 118px);
+      min-height: 610px;
+      background-color: var(--vyb-bg);
+      border-radius: 42px;
+      box-shadow:
+        0 32px 72px -14px rgba(11, 12, 20, 0.42),
+        0 12px 28px -8px rgba(11, 12, 20, 0.22),
+        inset 0 0 0 2px rgba(255, 255, 255, 0.08);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* Burbujas estándar salientes VYB */
+    .vyb-msg-standard {
+      background: linear-gradient(135deg, #5B46F6 0%, #3B66F5 100%);
+      border-radius: 20px;
+      border-bottom-right-radius: 6px;
+      box-shadow: 0 6px 18px rgba(67, 78, 245, 0.24);
+    }
+
+    /* ==========================================================================
+       2. BURBUJA AUTODESTRUCTIVA GLASSMORPHIC ("MECHA Y VAPORIZACIÓN VYB")
+       ========================================================================== */
+    .bomb-msg-slot {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      width: 100%;
+      min-height: 74px;
+      transition: min-height 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .bomb-msg-slot.is-destroyed {
+      min-height: 44px;
+    }
+
+    .bomb-bubble {
+      position: relative;
+      min-width: 224px;
+      max-width: 84%;
+      padding: 12px 15px 11px 15px;
+      border-radius: 22px;
+      border-bottom-right-radius: 8px;
+      background: linear-gradient(
+        135deg,
+        rgba(37, 32, 82, 0.82) 0%,
+        rgba(24, 29, 68, 0.76) 52%,
+        rgba(18, 41, 76, 0.82) 100%
+      );
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      will-change: transform, filter, opacity;
+      transition:
+        background 0.45s ease,
+        box-shadow 0.45s ease;
+      z-index: 10;
+    }
+
+    /* Borde luminoso de doble tono mediante máscara CSS */
+    .bomb-bubble::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1.75px;
+      background: linear-gradient(
+        95deg,
+        var(--stage1-left) 0%,
+        #B86BFF 48%,
+        var(--stage1-right) 100%
+      );
+      -webkit-mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+      transition: background 0.4s ease;
+    }
+
+    /* Reflejo especular diagonal superior izquierdo sobre el cristal */
+    .bomb-glass-glare {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(
+        118deg,
+        rgba(255, 255, 255, 0.15) 0%,
+        rgba(255, 255, 255, 0.04) 44%,
+        rgba(255, 255, 255, 0) 45%
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Estado 1: Activo (5s -> 3s) */
+    .bomb-bubble.stage-1 {
+      box-shadow:
+        -6px 2px 20px rgba(255, 159, 28, 0.25),
+        6px 2px 20px rgba(0, 229, 255, 0.24),
+        inset 0 1px 1px rgba(255, 255, 255, 0.16);
+    }
+
+    /* Estado 2: La mecha se consume (2s -> 1s) */
+    .bomb-bubble.stage-2 {
+      background: linear-gradient(
+        135deg,
+        rgba(64, 24, 58, 0.86) 0%,
+        rgba(46, 18, 62, 0.82) 55%,
+        rgba(72, 20, 56, 0.88) 100%
+      );
+      box-shadow:
+        -7px 2px 24px rgba(255, 94, 0, 0.42),
+        7px 2px 24px rgba(255, 42, 133, 0.45),
+        inset 0 0 18px rgba(255, 94, 0, 0.22);
+    }
+
+    .bomb-bubble.stage-2::before {
+      background: linear-gradient(
+        95deg,
+        var(--stage2-left) 0%,
+        #FF2A85 52%,
+        #B5179E 100%
+      );
+    }
+
+    /* Ondulación térmica interna en Etapa 2 */
+    .thermal-shimmer-layer {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      opacity: 0;
+      pointer-events: none;
+      overflow: hidden;
+      z-index: 1;
+      transition: opacity 0.35s ease;
+    }
+
+    .bomb-bubble.stage-2 .thermal-shimmer-layer {
+      opacity: 1;
+    }
+
+    .thermal-wave {
+      position: absolute;
+      inset: -25%;
+      background: radial-gradient(
+        ellipse at 45% 55%,
+        rgba(255, 110, 20, 0.34) 0%,
+        rgba(255, 42, 133, 0.22) 45%,
+        transparent 72%
+      );
+      filter: url(#vyb-heat-filter);
+      animation: heatPulse 1.1s ease-in-out infinite alternate;
+    }
+
+    @keyframes heatPulse {
+      0% {
+        transform: translate3d(-4%, 2%, 0) scale(0.96);
+        opacity: 0.65;
+      }
+      100% {
+        transform: translate3d(5%, -3%, 0) scale(1.06);
+        opacity: 1;
+      }
+    }
+
+    /* Grietas de cristal SVG en el borde derecho (Etapa 2) */
+    .glass-cracks-svg {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 96px;
+      height: 100%;
+      pointer-events: none;
+      z-index: 3;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .bomb-bubble.stage-2 .glass-cracks-svg {
+      opacity: 1;
+    }
+
+    .crack-line {
+      fill: none;
+      stroke: #E0F7FA;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 120;
+      stroke-dashoffset: 120;
+      filter: drop-shadow(0 0 4px rgba(255, 42, 133, 0.85));
+    }
+
+    .bomb-bubble.stage-2 .crack-line-1 {
+      animation: fractureDraw 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .bomb-bubble.stage-2 .crack-line-2 {
+      animation: fractureDraw 0.42s cubic-bezier(0.16, 1, 0.3, 1) 0.12s forwards;
+    }
+
+    .bomb-bubble.stage-2 .crack-line-3 {
+      animation: fractureDraw 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.22s forwards;
+    }
+
+    @keyframes fractureDraw {
+      to {
+        stroke-dashoffset: 0;
+      }
+    }
+
+    /* SVG Perimetral de la mecha ardiente */
+    .fuse-perimeter-svg {
+      position: absolute;
+      inset: -2px;
+      width: calc(100% + 4px);
+      height: calc(100% + 4px);
+      pointer-events: none;
+      z-index: 4;
+      overflow: visible;
+    }
+
+    /* Llama animada de la bomba */
+    .bomb-flame {
+      transform-origin: 47px 15px;
+      animation: flameFlicker 0.18s ease-in-out infinite alternate;
+    }
+
+    .bomb-bubble.stage-2 .bomb-flame {
+      animation: flameUrgent 0.09s ease-in-out infinite alternate;
+    }
+
+    @keyframes flameFlicker {
+      0% { transform: scale(0.92) rotate(-5deg); opacity: 0.88; }
+      100% { transform: scale(1.12) rotate(6deg); opacity: 1; }
+    }
+
+    @keyframes flameUrgent {
+      0% { transform: scale(1.15) rotate(-9deg); filter: brightness(1.2); }
+      100% { transform: scale(1.42) rotate(9deg); filter: brightness(1.55); }
+    }
+
+    /* Estado 3: Vaporización de derecha a izquierda */
+    .bomb-bubble.stage-3-vaporize {
+      pointer-events: none;
+      animation: vaporizeRightToLeft 0.62s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes vaporizeRightToLeft {
+      0% {
+        opacity: 1;
+        filter: blur(0px) brightness(1.2);
+        transform: translate3d(0, 0, 0) scale(1);
+        -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent 100%);
+        mask-image: linear-gradient(90deg, #000 85%, transparent 100%);
+      }
+      35% {
+        opacity: 0.92;
+        filter: blur(1.5px) brightness(1.65);
+        transform: translate3d(-4px, -2px, 0) scale(1.01);
+        -webkit-mask-image: linear-gradient(90deg, #000 45%, transparent 72%);
+        mask-image: linear-gradient(90deg, #000 45%, transparent 72%);
+      }
+      75% {
+        opacity: 0.4;
+        filter: blur(5px) brightness(1.9);
+        transform: translate3d(-10px, -6px, 0) scale(0.98);
+        -webkit-mask-image: linear-gradient(90deg, #000 8%, transparent 32%);
+        mask-image: linear-gradient(90deg, #000 8%, transparent 32%);
+      }
+      100% {
+        opacity: 0;
+        filter: blur(9px) brightness(2);
+        transform: translate3d(-16px, -10px, 0) scale(0.95);
+        -webkit-mask-image: linear-gradient(90deg, transparent 0%, transparent 100%);
+        mask-image: linear-gradient(90deg, transparent 0%, transparent 100%);
+      }
+    }
+
+    /* Cápsula Fantasma ("Mensaje autodestruido") */
+    .ghost-destroyed-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 16px;
+      border-bottom-right-radius: 6px;
+      background: rgba(20, 24, 42, 0.62);
+      border: 1px dashed rgba(148, 163, 184, 0.24);
+      color: #8E9BAE;
+      font-size: 12.5px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      opacity: 0;
+      transform: translateY(4px) scale(0.96);
+      animation: ghostAppear 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes ghostAppear {
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* Scrollbar sutil del chat */
+    .chat-scroll::-webkit-scrollbar {
+      width: 3px;
+    }
+    .chat-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .chat-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+    }
+
+    input {
+      user-select: text;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Filtro SVG invisible para la distorsión térmica sutil de la Etapa 2 -->
+  <svg width="0" height="0" class="absolute pointer-events-none" aria-hidden="true">
+    <defs>
+      <filter id="vyb-heat-filter" x="-15%" y="-15%" width="130%" height="130%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.035 0.09" numOctaves="2" seed="3" result="noise">
+          <animate attributeName="baseFrequency" dur="1.8s" values="0.035 0.09;0.05 0.13;0.035 0.09" repeatCount="indefinite" />
+        </feTurbulence>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="9" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+    </defs>
+  </svg>
+
+  <!-- ========================================================================
+       CHASIS MÓVIL PRINCIPAL (VYB DARK MODE #0B0C14)
+       ======================================================================== -->
+  <main class="phone-chassis" id="phoneFrame" aria-label="Prototipo móvil de chat VYB">
+
+    <!-- Barra de Estado Móvil -->
+    <header class="px-6 pt-3 pb-1.5 flex items-center justify-between text-white text-[12.5px] font-semibold shrink-0 z-20">
+      <div class="flex items-center gap-2">
+        <span>9:01</span>
+        <span class="w-4 h-4 rounded-full bg-white/10 flex items-center justify-center text-[9px] text-purple-300 font-bold">V</span>
+      </div>
+      <div class="flex items-center gap-1.5 text-[10px] text-slate-300">
+        <div class="leading-[1.05] text-right font-medium text-[9px] text-slate-400">
+          <div>18.70</div>
+          <div>K/s</div>
+        </div>
+        <!-- Señal 5G -->
+        <svg class="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M2 20h2v-4H2v4zm4 0h2v-7H6v7zm4 0h2V10h-2v10zm4 0h2V7h-2v13zm4 0h2V4h-2v16z"/>
+        </svg>
+        <!-- Wi-Fi -->
+        <svg class="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 18c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm-4.9-2.3l1.4 1.4C9.4 16.4 10.6 16 12 16s2.6.4 3.5 1.1l1.4-1.4C15.6 14.6 13.9 14 12 14s-3.6.6-4.9 1.7zm-2.8-2.8l1.4 1.4C7.3 13 9.5 12 12 12s4.7 1 6.3 2.3l1.4-1.4C17.7 11.1 15 10 12 10s-5.7 1.1-7.7 2.9z"/>
+        </svg>
+        <!-- Batería 86% -->
+        <span class="px-1.5 py-0.5 rounded-full bg-white text-[#0B0C14] font-bold text-[10px] leading-none">86</span>
+      </div>
+    </header>
+
+    <!-- Cabecera del Chat VYB -->
+    <div class="px-3.5 py-2.5 flex items-center justify-between border-b border-white/[0.06] shrink-0 z-20 bg-[#0B0C14]/90 backdrop-blur-md">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <button type="button" class="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-white/5 transition" aria-label="Volver">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+          </svg>
+        </button>
+
+        <!-- Avatar "L" -->
+        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-[#5B46F6] to-[#3B66F5] flex items-center justify-center text-white font-bold text-[15px] shadow-md shadow-indigo-950/60 shrink-0">
+          L
+        </div>
+
+        <div class="min-w-0">
+          <h1 class="text-white font-bold text-[15px] leading-tight truncate">LourdesMitum</h1>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <span class="w-2 h-2 rounded-full bg-[#22C55E] inline-block shadow-[0_0_6px_#22C55E]"></span>
+            <span class="text-[#8E9BAE] text-[11.5px] font-medium">En línea</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Iconos de Llamada y Video -->
+      <div class="flex items-center gap-1 text-[#8E9BAE]">
+        <button type="button" class="p-2 rounded-full hover:bg-white/5 hover:text-white transition" aria-label="Llamar">
+          <svg class="w-[18px] h-[18px]" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.46.57 3.58a1 1 0 01-.25 1.01l-2.2 2.2z"/>
+          </svg>
+        </button>
+        <button type="button" class="p-2 rounded-full hover:bg-white/5 hover:text-white transition" aria-label="Videollamada">
+          <svg class="w-[19px] h-[19px]" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 4v-11l-4 4z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Área de Mensajes del Chat -->
+    <div id="chatViewport" class="flex-1 px-3.5 pt-3 pb-4 overflow-y-auto chat-scroll relative flex flex-col gap-2.5">
+
+      <!-- Mensaje Histórico 1: "todo" -->
+      <div class="flex flex-col items-end">
+        <div class="vyb-msg-standard px-3.5 py-2 max-w-[75%]">
+          <p class="text-white text-[14.5px] leading-snug">todo</p>
+          <div class="flex items-center justify-end gap-1 mt-0.5 text-[10.5px] text-indigo-100/80">
+            <span>08:42 a. m.</span>
+            <svg class="w-3.5 h-3.5 text-cyan-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2 13l4 4L15 8m-4 9l4 4L22 10"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mensaje Histórico 2: "hola" -->
+      <div class="flex flex-col items-end">
+        <div class="vyb-msg-standard px-3.5 py-2 max-w-[75%]">
+          <p class="text-white text-[14.5px] leading-snug">hola</p>
+          <div class="flex items-center justify-end gap-1 mt-0.5 text-[10.5px] text-indigo-100/80">
+            <span>11:05 a. m.</span>
+            <svg class="w-3.5 h-3.5 text-cyan-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2 13l4 4L15 8m-4 9l4 4L22 10"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mensaje Histórico 3: Nota de voz 0:06 -->
+      <div class="flex flex-col items-end">
+        <div class="vyb-msg-standard px-3.5 py-2.5 w-[82%] max-w-[305px]">
+          <div class="flex items-center gap-3">
+            <button type="button" class="w-10 h-10 rounded-full bg-white/20 hover:bg-white/25 flex items-center justify-center text-white shrink-0 transition" aria-label="Reproducir nota de voz">
+              <svg class="w-4 h-4 translate-x-[1px]" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
+            </button>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-1.5 text-white text-[13.5px] font-semibold">
+                <svg class="w-4 h-4 text-cyan-200 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/>
+                </svg>
+                <span>Nota de voz</span>
+              </div>
+              <!-- Barra de progreso de audio -->
+              <div class="mt-2 mb-1 relative h-1 bg-white/25 rounded-full flex items-center">
+                <div class="w-full h-full bg-white/80 rounded-full"></div>
+                <span class="w-2.5 h-2.5 rounded-full bg-white shadow absolute right-0"></span>
+              </div>
+              <div class="text-[11px] text-indigo-100/85 font-medium">0:06</div>
+            </div>
+          </div>
+          <div class="flex items-center justify-start gap-1 mt-1 text-[10.5px] text-indigo-100/80">
+            <span>06:58 p. m.</span>
+            <svg class="w-3.5 h-3.5 text-cyan-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2 13l4 4L15 8m-4 9l4 4L22 10"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Píldora Separadora de Fecha: "Hoy" -->
+      <div class="flex justify-center my-1">
+        <span class="px-3.5 py-1 rounded-full bg-[#15192B] border border-white/[0.06] text-[#8E9BAE] text-[11.5px] font-medium">
+          Hoy
+        </span>
+      </div>
+
+      <!-- ====================================================================
+           MENSAJE AUTODESTRUCTIVO PRINCIPAL ("hola" | Al leer • 5s)
+           ==================================================================== -->
+      <div id="featuredBombSlot" class="bomb-msg-slot">
+        <!-- Contenedor dinámico inyectado por JS -->
+      </div>
+
+      <!-- Contenedor para nuevos mensajes autodestructivos enviados en vivo -->
+      <div id="liveBombMessages" class="flex flex-col gap-2.5"></div>
+
+    </div>
+
+    <!-- ======================================================================
+         CAPA CANVAS 2D PARA CHISPAS DE MECHA, CRISTALES, HUMO Y VAPORIZACIÓN
+         ====================================================================== -->
+    <canvas id="fxCanvas" class="absolute inset-0 pointer-events-none z-30"></canvas>
+
+    <!-- Barra Inferior de Composición de Mensajes -->
+    <form id="composerForm" class="px-3 py-2.5 bg-[#0B0C14] border-t border-white/[0.06] flex items-center gap-2 shrink-0 z-20">
+      <!-- Botón Adjuntar "+" -->
+      <button
+        type="button"
+        class="w-9 h-9 rounded-full border border-slate-700/80 text-slate-400 hover:text-white hover:border-slate-500 flex items-center justify-center transition shrink-0"
+        aria-label="Adjuntar"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14"/>
+        </svg>
+      </button>
+
+      <!-- Campo de Texto + Selector de Temporizador Bomba -->
+      <div class="flex-1 bg-[#121626] border border-cyan-500/35 focus-within:border-cyan-400 rounded-full pl-3.5 pr-1.5 py-1.5 flex items-center gap-1.5 shadow-[0_0_15px_rgba(0,229,255,0.08)] transition min-w-0">
+        <input
+          type="text"
+          id="messageInput"
+          placeholder="Escribe un mensaje, /cobr..."
+          autocomplete="off"
+          class="bg-transparent text-white placeholder-[#7A889E] text-[13.5px] w-full focus:outline-none min-w-0"
+        />
+
+        <!-- Selector rápido de duración de bomba (3s / 5s / 10s) -->
+        <button
+          type="button"
+          id="timerPresetBtn"
+          class="px-2 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/30 text-amber-300 text-[11px] font-bold flex items-center gap-1 shrink-0 transition cursor-pointer"
+          title="Cambiar duración de autodestrucción"
+        >
+          <span>💣</span>
+          <span id="timerPresetLabel">5s</span>
+        </button>
+      </div>
+
+      <!-- Botón Enviar con Degradado VYB -->
+      <button
+        type="submit"
+        class="w-10 h-10 rounded-full bg-gradient-to-br from-[#3B66F5] to-[#7C4DFF] hover:brightness-110 active:scale-95 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 transition shrink-0 cursor-pointer"
+        aria-label="Enviar mensaje autodestructivo"
+      >
+        <svg class="w-4 h-4 translate-x-[1px]" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
+      </button>
+    </form>
+
+  </main>
+
+  <!-- ========================================================================
+       CONTROLES DE INSPECCIÓN DE ESTUDIO (FUERA DEL MARCO MÓVIL)
+       ======================================================================== -->
+  <section class="mt-3 w-full max-w-[392px] bg-white/90 backdrop-blur-md border border-slate-200/95 shadow-sm rounded-2xl p-2.5 flex flex-col gap-2 text-xs">
+    <!-- Fila 1: Botones de Etapas Directas -->
+    <div class="flex items-center justify-between gap-1.5">
+      <button
+        type="button"
+        id="btnStage1"
+        class="stage-ctrl-btn flex-1 py-1.5 px-2 rounded-xl font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 transition cursor-pointer text-[11.5px]"
+      >
+        Etapa 1 (05s)
+      </button>
+      <button
+        type="button"
+        id="btnStage2"
+        class="stage-ctrl-btn flex-1 py-1.5 px-2 rounded-xl font-semibold bg-rose-50 hover:bg-rose-100 text-rose-900 border border-rose-200/80 transition cursor-pointer text-[11.5px]"
+      >
+        Etapa 2 (02s)
+      </button>
+      <button
+        type="button"
+        id="btnStage3"
+        class="stage-ctrl-btn flex-1 py-1.5 px-2 rounded-xl font-semibold bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200/80 transition cursor-pointer text-[11.5px]"
+      >
+        Etapa 3 (00s)
+      </button>
+    </div>
+
+    <!-- Fila 2: Reiniciar (5s), Pausa/Reanudar y Selector de Velocidad -->
+    <div class="flex items-center justify-between gap-2">
+      <div class="flex items-center gap-1.5">
+        <button
+          type="button"
+          id="btnRestart"
+          class="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-semibold flex items-center gap-1.5 transition cursor-pointer"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          <span>Reiniciar (5s)</span>
+        </button>
+
+        <button
+          type="button"
+          id="btnPauseToggle"
+          class="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition cursor-pointer"
+          title="Pausar o reanudar temporizador para inspeccionar"
+          aria-label="Pausar o reanudar"
+        >
+          <svg id="pauseIcon" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+          </svg>
+          <svg id="playIcon" class="w-4 h-4 hidden" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Control Segmentado de Velocidad -->
+      <div class="flex items-center bg-slate-200/85 p-0.5 rounded-xl" role="group" aria-label="Velocidad de reproducción">
+        <button
+          type="button"
+          data-speed="1"
+          class="speed-toggle-btn px-2.5 py-1 rounded-lg font-semibold bg-white text-slate-900 shadow-xs transition cursor-pointer text-[11.5px]"
+        >
+          1.0x Normal
+        </button>
+        <button
+          type="button"
+          data-speed="0.5"
+          class="speed-toggle-btn px-2.5 py-1 rounded-lg font-semibold text-slate-600 hover:text-slate-900 transition cursor-pointer text-[11.5px]"
+        >
+          0.5x Lento
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    /**
+     * ============================================================================
+     * VYB — SISTEMA "MECHA Y VAPORIZACIÓN" PARA MENSAJES AUTODESTRUCTIVOS
+     * Arquitectura modular:
+     *  1. Controlador de Estado de Mensajes Bomba (Etapa 1 -> Etapa 2 -> Etapa 3)
+     *  2. Geometría Perimetral Exacta para la Mecha Ardiente
+     *  3. Motor de Partículas Canvas 2D a 60fps (chispas, cristales, brasas y humo)
+     * ============================================================================
+     */
+
+    const phoneFrame = document.getElementById('phoneFrame');
+    const chatViewport = document.getElementById('chatViewport');
+    const featuredBombSlot = document.getElementById('featuredBombSlot');
+    const liveBombMessages = document.getElementById('liveBombMessages');
+    const fxCanvas = document.getElementById('fxCanvas');
+    const ctx = fxCanvas.getContext('2d');
+
+    // Estado global del estudio
+    const studioState = {
+      playbackSpeed: 1.0,
+      isPaused: false,
+      presetSeconds: 5,
+      particles: [],
+      shockwaves: [],
+      activeBombs: new Map()
+    };
+
+    // Ajustar resolución Retina / DPR del Canvas 2D
+    function resizeFxCanvas() {
+      const rect = phoneFrame.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      fxCanvas.width = rect.width * dpr;
+      fxCanvas.height = rect.height * dpr;
+      fxCanvas.style.width = `${rect.width}px`;
+      fxCanvas.style.height = `${rect.height}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    window.addEventListener('resize', resizeFxCanvas);
+    resizeFxCanvas();
+
+    /**
+     * Genera el SVG glossy 3D de la bomba negra con llama animada en la mecha
+     */
+    function getBombSvgMarkup() {
+      return `
+        <svg viewBox="0 0 64 64" class="w-5 h-5 overflow-visible shrink-0 drop-shadow-[0_2px_5px_rgba(0,0,0,0.65)]">
+          <defs>
+            <radialGradient id="bombBodyGrad" cx="35%" cy="30%" r="65%">
+              <stop offset="0%" stop-color="#64748B"/>
+              <stop offset="30%" stop-color="#272A3A"/>
+              <stop offset="80%" stop-color="#11131D"/>
+              <stop offset="100%" stop-color="#07080D"/>
+            </radialGradient>
+            <radialGradient id="flameCore" cx="50%" cy="60%" r="55%">
+              <stop offset="0%" stop-color="#FFFFFF"/>
+              <stop offset="40%" stop-color="#FFF59D"/>
+              <stop offset="78%" stop-color="#FF9100"/>
+              <stop offset="100%" stop-color="#FF3D00" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <!-- Cuello metálico de la mecha -->
+          <rect x="33" y="13" width="9" height="7" rx="2" transform="rotate(32 37 16)" fill="#334155" stroke="#64748B" stroke-width="0.8"/>
+          <!-- Esfera principal de la bomba -->
+          <circle cx="27" cy="37" r="19" fill="url(#bombBodyGrad)"/>
+          <!-- Brillo especular 3D superior izquierdo -->
+          <ellipse cx="20" cy="28" rx="6.5" ry="3.4" transform="rotate(-32 20 28)" fill="#FFFFFF" opacity="0.34"/>
+          <circle cx="16.5" cy="33.5" r="1.6" fill="#FFFFFF" opacity="0.22"/>
+          <!-- Cordón de la mecha -->
+          <path d="M39 15 Q44 10 47 15" stroke="#D4A373" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+          <!-- Llama activa en la punta -->
+          <g class="bomb-flame">
+            <circle cx="47" cy="15" r="9.5" fill="url(#flameCore)"/>
+            <path d="M47 6 C49.5 10.5, 53 12.5, 51 16.5 C49.5 19.5, 44.5 19.5, 43 16.5 C41 12.5, 44.5 10.5, 47 6 Z" fill="#FF9F1C"/>
+            <path d="M47 9.5 C48.4 12, 50 13.5, 49 15.5 C48.2 17, 45.8 17, 45 15.5 C44 13.5, 45.6 12, 47 9.5 Z" fill="#FFF9C4"/>
+          </g>
+        </svg>
+      `;
+    }
+
+    /**
+     * Genera el SVG del ícono de mecha apagada para la cápsula "Mensaje autodestruido"
+     */
+    function getExtinguishedBombSvg() {
+      return `
+        <svg viewBox="0 0 24 24" class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="10.5" cy="14.5" r="6.5" fill="rgba(148,163,184,0.12)"/>
+          <path stroke-linecap="round" d="M15 9.5l2.2-2.2M17.5 4.5c.8.6.8 1.6 0 2.2M19.8 3.5c.7.5.7 1.4 0 1.9"/>
+        </svg>
+      `;
+    }
+
+    /**
+     * Crea o reinicia una instancia de mensaje autodestructivo dentro de un slot
+     */
+    function createBombMessageInstance({ id, slotEl, text, durationSec, timestamp, startRemaining = null }) {
+      const initialRemaining = startRemaining !== null ? startRemaining : durationSec;
+
+      slotEl.classList.remove('is-destroyed');
+      slotEl.innerHTML = `
+        <div id="bubble-${id}" class="bomb-bubble stage-1">
+          <!-- Reflejo de cristal -->
+          <div class="bomb-glass-glare"></div>
+
+          <!-- Capa de distorsión térmica (Etapa 2) -->
+          <div class="thermal-shimmer-layer">
+            <div class="thermal-wave"></div>
+          </div>
+
+          <!-- Grietas de cristal SVG en borde derecho (Etapa 2) -->
+          <svg class="glass-cracks-svg" viewBox="0 0 96 76" preserveAspectRatio="none">
+            <path class="crack-line crack-line-1" d="M95 14 L78 24 L83 34 L67 45 L73 56 L58 68" stroke-width="1.4" />
+            <path class="crack-line crack-line-2" d="M78 24 L64 21 L55 29" stroke-width="1.05" />
+            <path class="crack-line crack-line-3" d="M83 34 L94 42 M67 45 L54 44 L47 51" stroke-width="1.0" />
+          </svg>
+
+          <!-- Trazo perimetral de mecha ardiente -->
+          <svg class="fuse-perimeter-svg" id="fuse-svg-${id}">
+            <defs>
+              <linearGradient id="fuseGrad-${id}" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#FFF59D"/>
+                <stop offset="50%" stop-color="#FF9F1C"/>
+                <stop offset="100%" stop-color="#FF2A85"/>
+              </linearGradient>
+            </defs>
+            <rect
+              id="fuse-rect-${id}"
+              x="1" y="1" rx="21" ry="21"
+              fill="none"
+              stroke="url(#fuseGrad-${id})"
+              stroke-width="2.4"
+              stroke-linecap="round"
+              style="filter: drop-shadow(0 0 6px rgba(255, 180, 40, 0.95));"
+            />
+          </svg>
+
+          <!-- Contenido del mensaje -->
+          <div class="relative z-10">
+            <p class="text-white text-[15px] font-normal leading-snug tracking-[-0.01em] pr-2"></p>
+
+            <div class="flex items-center justify-between gap-3 mt-1.5">
+              <!-- Indicador Bomba + "Al leer • Xs" -->
+              <div class="flex items-center gap-1.5">
+                ${getBombSvgMarkup()}
+                <span class="text-[12px] font-semibold text-slate-100/95 tracking-tight">
+                  Al leer • <span id="countdown-${id}" class="tabular-nums text-amber-200">${Math.ceil(initialRemaining)}s</span>
+                </span>
+              </div>
+
+              <!-- Timestamp + Doble Check -->
+              <div class="flex items-center gap-1 text-[10.5px] text-slate-300/85 shrink-0">
+                <span>${timestamp}</span>
+                <svg class="w-3.5 h-3.5 text-cyan-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2 13l4 4L15 8m-4 9l4 4L22 10"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      slotEl.querySelector('p').textContent = text;
+
+      const bubbleEl = document.getElementById(`bubble-${id}`);
+      const fuseSvgEl = document.getElementById(`fuse-svg-${id}`);
+      const fuseRectEl = document.getElementById(`fuse-rect-${id}`);
+      const countdownEl = document.getElementById(`countdown-${id}`);
+
+      const instance = {
+        id,
+        slotEl,
+        bubbleEl,
+        fuseSvgEl,
+        fuseRectEl,
+        countdownEl,
+        text,
+        duration: durationSec,
+        remaining: initialRemaining,
+        timestamp,
+        stage: 1,
+        vaporized: false,
+        sparkAccumulator: 0,
+        crackAccumulator: 0
+      };
+
+      studioState.activeBombs.set(id, instance);
+
+      // Si se invocó directamente en Etapa 3 (00s), disparar vaporización inmediata
+      if (initialRemaining <= 0) {
+        triggerStage3Vaporization(instance);
+      } else {
+        updateBubbleVisualState(instance, 0.016);
+      }
+
+      return instance;
+    }
+
+    /**
+     * Calcula el punto exacto (x, y) a lo largo del perímetro de un rectángulo redondeado
+     * para posicionar la punta incandescente de la mecha y emitir chispas en Canvas.
+     */
+    function getRoundedRectPerimeterPoint(width, height, radius, progress01) {
+      const r = Math.min(radius, width / 2, height / 2);
+      const straightW = Math.max(0, width - 2 * r);
+      const straightH = Math.max(0, height - 2 * r);
+      const arcLen = (Math.PI / 2) * r;
+      const totalPerimeter = 2 * (straightW + straightH) + 4 * arcLen;
+
+      // Desfase inicial para que la mecha recorra el borde derecho e inferior hacia la bomba (izquierda)
+      const shiftedProgress = (progress01 + 0.28) % 1;
+      let d = shiftedProgress * totalPerimeter;
+
+      // 1. Borde superior (izq -> der)
+      if (d <= straightW) return { x: r + d, y: 0, angle: 0 };
+      d -= straightW;
+
+      // 2. Esquina superior derecha
+      if (d <= arcLen) {
+        const a = -Math.PI / 2 + (d / r);
+        return { x: width - r + Math.cos(a) * r, y: r + Math.sin(a) * r, angle: a + Math.PI / 2 };
+      }
+      d -= arcLen;
+
+      // 3. Borde derecho (arriba -> abajo)
+      if (d <= straightH) return { x: width, y: r + d, angle: Math.PI / 2 };
+      d -= straightH;
+
+      // 4. Esquina inferior derecha
+      if (d <= arcLen) {
+        const a = (d / r);
+        return { x: width - r + Math.cos(a) * r, y: height - r + Math.sin(a) * r, angle: a + Math.PI / 2 };
+      }
+      d -= arcLen;
+
+      // 5. Borde inferior (der -> izq: mecha principal ardiendo hacia la bomba)
+      if (d <= straightW) return { x: width - r - d, y: height, angle: Math.PI };
+      d -= straightW;
+
+      // 6. Esquina inferior izquierda
+      if (d <= arcLen) {
+        const a = Math.PI / 2 + (d / r);
+        return { x: r + Math.cos(a) * r, y: height - r + Math.sin(a) * r, angle: a + Math.PI / 2 };
+      }
+      d -= arcLen;
+
+      // 7. Borde izquierdo (abajo -> arriba)
+      if (d <= straightH) return { x: 0, y: height - r - d, angle: -Math.PI / 2 };
+      d -= straightH;
+
+      // 8. Esquina superior izquierda
+      const a = Math.PI + (d / r);
+      return { x: r + Math.cos(a) * r, y: r + Math.sin(a) * r, angle: a + Math.PI / 2 };
+    }
+
+    /**
+     * Actualiza la Etapa 1 o Etapa 2 de una burbuja activa y emite chispas en Canvas
+     */
+    function updateBubbleVisualState(inst, dt) {
+      if (inst.vaporized || !inst.bubbleEl) return;
+
+      const ratio = Math.max(0, Math.min(1, inst.remaining / inst.duration));
+      const ceilSec = Math.max(1, Math.ceil(inst.remaining));
+      if (inst.countdownEl.textContent !== `${ceilSec}s`) {
+        inst.countdownEl.textContent = `${ceilSec}s`;
+      }
+
+      // Determinar transición entre Etapa 1 (>2s) y Etapa 2 (<=2s)
+      const isStage2 = inst.remaining <= 2.0;
+      if (isStage2 && inst.stage !== 2) {
+        inst.stage = 2;
+        inst.bubbleEl.classList.remove('stage-1');
+        inst.bubbleEl.classList.add('stage-2');
+        inst.countdownEl.classList.remove('text-amber-200');
+        inst.countdownEl.classList.add('text-rose-200');
+      } else if (!isStage2 && inst.stage !== 1) {
+        inst.stage = 1;
+        inst.bubbleEl.classList.remove('stage-2');
+        inst.bubbleEl.classList.add('stage-1');
+        inst.countdownEl.classList.add('text-amber-200');
+        inst.countdownEl.classList.remove('text-rose-200');
+      }
+
+      // Micro-temblor de alta frecuencia en Etapa 2 conforme se acerca a 0s
+      if (isStage2 && !studioState.isPaused) {
+        const urgency = 1 - (inst.remaining / 2.0); // 0 -> 1
+        const amp = 0.7 + urgency * 1.9;
+        const jx = (Math.random() - 0.5) * 2 * amp;
+        const jy = (Math.random() - 0.5) * 2 * amp;
+        inst.bubbleEl.style.transform = `translate3d(${jx.toFixed(2)}px, ${jy.toFixed(2)}px, 0)`;
+      } else {
+        inst.bubbleEl.style.transform = 'translate3d(0, 0, 0)';
+      }
+
+      // Actualizar trazo SVG perimetral de la mecha
+      const rect = inst.bubbleEl.getBoundingClientRect();
+      const phoneRect = phoneFrame.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+
+      const w = rect.width + 2;
+      const h = rect.height + 2;
+      inst.fuseRectEl.setAttribute('width', w);
+      inst.fuseRectEl.setAttribute('height', h);
+
+      const perimeter = 2 * (w + h - 42) + 2 * Math.PI * 21;
+      const visibleLength = Math.max(14, perimeter * ratio * 0.48);
+      inst.fuseRectEl.style.strokeDasharray = `${visibleLength} ${perimeter}`;
+      inst.fuseRectEl.style.strokeDashoffset = `${-perimeter * (1 - ratio)}`;
+
+      // Calcular coordenadas absolutas dentro del phoneFrame para el Canvas
+      if (!studioState.isPaused) {
+        const pt = getRoundedRectPerimeterPoint(rect.width, rect.height, 21, 1 - ratio);
+        const canvasX = (rect.left - phoneRect.left) + pt.x;
+        const canvasY = (rect.top - phoneRect.top) + pt.y;
+
+        // Emitir chispas desde la punta de la mecha ardiente
+        inst.sparkAccumulator += dt * (isStage2 ? 58 : 34);
+        while (inst.sparkAccumulator >= 1) {
+          inst.sparkAccumulator -= 1;
+          spawnFuseSpark(canvasX, canvasY, isStage2);
+        }
+
+        // En Etapa 2, desprender fragmentos de cristal y ceniza del borde derecho agrietado
+        if (isStage2) {
+          inst.crackAccumulator += dt * 16;
+          while (inst.crackAccumulator >= 1) {
+            inst.crackAccumulator -= 1;
+            const rightEdgeX = (rect.right - phoneRect.left) - 4 - Math.random() * 14;
+            const rightEdgeY = (rect.top - phoneRect.top) + 10 + Math.random() * (rect.height - 20);
+            spawnGlassFleck(rightEdgeX, rightEdgeY);
+          }
+        }
+      }
+    }
+
+    /**
+     * Etapa 3 (00s): Onda de choque, flash luminoso, ~160 partículas y cápsula fantasma
+     */
+    function triggerStage3Vaporization(inst) {
+      if (inst.vaporized) return;
+      inst.vaporized = true;
+      inst.stage = 3;
+
+      const rect = inst.bubbleEl.getBoundingClientRect();
+      const phoneRect = phoneFrame.getBoundingClientRect();
+
+      const boxX = rect.left - phoneRect.left;
+      const boxY = rect.top - phoneRect.top;
+      const boxW = rect.width || 230;
+      const boxH = rect.height || 72;
+      const centerX = boxX + boxW / 2;
+      const centerY = boxY + boxH / 2;
+
+      // 1. Onda de choque y destello radial en Canvas
+      studioState.shockwaves.push({
+        x: centerX,
+        y: centerY,
+        radius: 10,
+        maxRadius: Math.max(boxW, 170) * 0.85,
+        alpha: 0.95
+      });
+
+      // 2. Generar ~160 partículas: brasas doradas, chispas de fuego y humo violeta
+      // A) ~95 Brasas doradas/ámbar que flotan hacia arriba
+      for (let i = 0; i < 95; i++) {
+        const px = boxX + Math.random() * boxW;
+        const py = boxY + Math.random() * boxH;
+        const fromRightFactor = (px - boxX) / boxW; // Más impulso inicial desde la derecha
+        studioState.particles.push({
+          type: 'ember',
+          x: px,
+          y: py,
+          vx: (Math.random() - 0.55) * 38 + fromRightFactor * 16,
+          vy: -18 - Math.random() * 52,
+          gravity: -14,
+          drag: 0.97,
+          size: 1.6 + Math.random() * 2.8,
+          life: 0.95 + Math.random() * 0.75,
+          age: Math.random() * 0.14,
+          wobblePhase: Math.random() * Math.PI * 2,
+          color: Math.random() > 0.35 ? '#FFD54F' : '#FF9F1C'
+        });
+      }
+
+      // B) ~42 Chispas rápidas de fuego
+      for (let i = 0; i < 42; i++) {
+        const px = boxX + Math.random() * boxW;
+        const py = boxY + Math.random() * boxH;
+        const angle = (Math.random() - 0.5) * Math.PI * 1.4 - Math.PI * 0.25;
+        const speed = 55 + Math.random() * 95;
+        studioState.particles.push({
+          type: 'fireSpark',
+          x: px,
+          y: py,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 15,
+          gravity: 45,
+          drag: 0.94,
+          size: 1.4 + Math.random() * 1.6,
+          life: 0.55 + Math.random() * 0.45,
+          age: 0,
+          color: Math.random() > 0.5 ? '#FFF59D' : '#FF5E00'
+        });
+      }
+
+      // C) ~24 Volutas suaves de humo violeta/púrpura
+      for (let i = 0; i < 24; i++) {
+        const px = boxX + 12 + Math.random() * (boxW - 24);
+        const py = boxY + 10 + Math.random() * (boxH - 20);
+        studioState.particles.push({
+          type: 'smoke',
+          x: px,
+          y: py,
+          vx: (Math.random() - 0.5) * 24,
+          vy: -16 - Math.random() * 28,
+          gravity: -6,
+          drag: 0.96,
+          size: 14 + Math.random() * 18,
+          maxSize: 34 + Math.random() * 22,
+          life: 1.1 + Math.random() * 0.65,
+          age: Math.random() * 0.12,
+          color: Math.random() > 0.45 ? '168, 85, 247' : '124, 77, 255'
+        });
+      }
+
+      // 3. Disolver la burbuja de derecha a izquierda y mostrar cápsula fantasma
+      inst.bubbleEl.classList.remove('stage-1', 'stage-2');
+      inst.bubbleEl.classList.add('stage-3-vaporize');
+
+      const dissolveDelay = 480 / studioState.playbackSpeed;
+      setTimeout(() => {
+        if (!inst.vaporized) return;
+        inst.slotEl.classList.add('is-destroyed');
+        inst.slotEl.innerHTML = `
+          <div class="ghost-destroyed-pill">
+            ${getExtinguishedBombSvg()}
+            <span>Mensaje autodestruido</span>
+          </div>
+        `;
+        studioState.activeBombs.delete(inst.id);
+      }, dissolveDelay);
+    }
+
+    /**
+     * Emite una chispa direccional desde la punta de la mecha perimetral
+     */
+    function spawnFuseSpark(x, y, isUrgent) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = (isUrgent ? 36 : 22) + Math.random() * 42;
+      studioState.particles.push({
+        type: 'fireSpark',
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 12,
+        gravity: 65,
+        drag: 0.93,
+        size: isUrgent ? 1.8 : 1.35,
+        life: 0.32 + Math.random() * 0.25,
+        age: 0,
+        color: isUrgent
+          ? (Math.random() > 0.4 ? '#FF2A85' : '#FFD54F')
+          : (Math.random() > 0.4 ? '#FFF59D' : '#00E5FF')
+      });
+    }
+
+    /**
+     * Emite un micro-fragmento de cristal/ceniza desde el borde derecho agrietado (Etapa 2)
+     */
+    function spawnGlassFleck(x, y) {
+      studioState.particles.push({
+        type: 'glassFleck',
+        x,
+        y,
+        vx: 10 + Math.random() * 28,
+        vy: 12 + Math.random() * 34,
+        gravity: 85,
+        drag: 0.96,
+        rotation: Math.random() * Math.PI * 2,
+        vRot: (Math.random() - 0.5) * 10,
+        size: 2.2 + Math.random() * 2.4,
+        life: 0.55 + Math.random() * 0.35,
+        age: 0,
+        color: Math.random() > 0.5 ? '#E0F7FA' : '#FF80AB'
+      });
+    }
+
+    /**
+     * Bucle principal de renderizado Canvas 2D + Temporizadores (60fps)
+     */
+    let lastTimestamp = performance.now();
+
+    function mainLoop(now) {
+      const rawDt = Math.min(0.05, (now - lastTimestamp) / 1000);
+      lastTimestamp = now;
+      const dt = studioState.isPaused ? 0 : rawDt * studioState.playbackSpeed;
+
+      // 1. Actualizar cuenta regresiva de todas las burbujas bomba activas
+      studioState.activeBombs.forEach((inst) => {
+        if (inst.vaporized) return;
+
+        if (!studioState.isPaused) {
+          inst.remaining -= dt;
+        }
+
+        if (inst.remaining <= 0) {
+          inst.remaining = 0;
+          triggerStage3Vaporization(inst);
+        } else {
+          updateBubbleVisualState(inst, dt);
+        }
+      });
+
+      // 2. Limpiar y dibujar efectos en el Canvas 2D
+      const canvasW = phoneFrame.clientWidth;
+      const canvasH = phoneFrame.clientHeight;
+      ctx.clearRect(0, 0, canvasW, canvasH);
+
+      // A) Ondas de choque (Etapa 3)
+      for (let i = studioState.shockwaves.length - 1; i >= 0; i--) {
+        const sw = studioState.shockwaves[i];
+        if (!studioState.isPaused) {
+          sw.radius += (sw.maxRadius - sw.radius) * (1 - Math.exp(-9 * dt));
+          sw.alpha -= dt * 1.85;
+        }
+
+        if (sw.alpha <= 0) {
+          studioState.shockwaves.splice(i, 1);
+          continue;
+        }
+
+        ctx.save();
+        // Destello central suave
+        const flashGrad = ctx.createRadialGradient(sw.x, sw.y, 2, sw.x, sw.y, sw.radius * 0.8);
+        flashGrad.addColorStop(0, `rgba(255, 243, 224, ${sw.alpha * 0.55})`);
+        flashGrad.addColorStop(0.5, `rgba(168, 85, 247, ${sw.alpha * 0.28})`);
+        flashGrad.addColorStop(1, 'rgba(168, 85, 247, 0)');
+        ctx.fillStyle = flashGrad;
+        ctx.beginPath();
+        ctx.arc(sw.x, sw.y, sw.radius * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Anillo exterior
+        ctx.strokeStyle = `rgba(255, 213, 79, ${sw.alpha * 0.75})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // B) Partículas (Brasas, Chispas, Cristales y Humo Violeta)
+      for (let i = studioState.particles.length - 1; i >= 0; i--) {
+        const p = studioState.particles[i];
+        if (!studioState.isPaused) {
+          p.age += dt;
+        }
+
+        if (p.age >= p.life) {
+          studioState.particles.splice(i, 1);
+          continue;
+        }
+
+        const progress = p.age / p.life;
+        const alpha = progress < 0.15 ? progress / 0.15 : 1 - ((progress - 0.15) / 0.85);
+
+        if (!studioState.isPaused) {
+          p.vx *= Math.pow(p.drag, dt * 60);
+          p.vy = p.vy * Math.pow(p.drag, dt * 60) + p.gravity * dt;
+          if (p.type === 'ember') {
+            p.x += (p.vx + Math.sin(p.age * 7 + p.wobblePhase) * 14) * dt;
+          } else {
+            p.x += p.vx * dt;
+          }
+          p.y += p.vy * dt;
+        }
+
+        ctx.save();
+        if (p.type === 'smoke') {
+          const curRadius = p.size + (p.maxSize - p.size) * progress;
+          const grad = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, curRadius);
+          grad.addColorStop(0, `rgba(${p.color}, ${alpha * 0.28})`);
+          grad.addColorStop(0.6, `rgba(${p.color}, ${alpha * 0.12})`);
+          grad.addColorStop(1, `rgba(${p.color}, 0)`);
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, curRadius, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (p.type === 'glassFleck') {
+          if (!studioState.isPaused) p.rotation += p.vRot * dt;
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rotation);
+          ctx.globalAlpha = Math.max(0, alpha);
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.moveTo(-p.size, -p.size * 0.6);
+          ctx.lineTo(p.size, -p.size * 0.3);
+          ctx.lineTo(0, p.size);
+          ctx.closePath();
+          ctx.fill();
+        } else if (p.type === 'fireSpark') {
+          ctx.globalAlpha = Math.max(0, alpha);
+          ctx.strokeStyle = p.color;
+          ctx.lineWidth = p.size;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x - p.vx * 0.035, p.y - p.vy * 0.035);
+          ctx.stroke();
+        } else {
+          // Brasa dorada brillante
+          ctx.globalAlpha = Math.max(0, alpha);
+          ctx.fillStyle = p.color;
+          ctx.shadowColor = p.color;
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * (1 - progress * 0.35), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      requestAnimationFrame(mainLoop);
+    }
+
+    /**
+     * Inicializa controles de Estudio y Compositor de Mensajes en Vivo
+     */
+    function setupControls() {
+      const startFeaturedBomb = (startRemaining = 5) => {
+        studioState.isPaused = false;
+        updatePauseButtonUI();
+        createBombMessageInstance({
+          id: 'featured',
+          slotEl: featuredBombSlot,
+          text: 'hola',
+          durationSec: 5,
+          timestamp: '09:00 a. m.',
+          startRemaining
+        });
+      };
+
+      // Botones directos de Etapas 1, 2 y 3
+      document.getElementById('btnStage1').addEventListener('click', () => startFeaturedBomb(5.0));
+      document.getElementById('btnStage2').addEventListener('click', () => startFeaturedBomb(2.0));
+      document.getElementById('btnStage3').addEventListener('click', () => startFeaturedBomb(0.0));
+
+      // Botón Reiniciar (5s)
+      document.getElementById('btnRestart').addEventListener('click', () => startFeaturedBomb(5.0));
+
+      // Botón Pausa / Reanudar
+      const pauseBtn = document.getElementById('btnPauseToggle');
+      const pauseIcon = document.getElementById('pauseIcon');
+      const playIcon = document.getElementById('playIcon');
+
+      function updatePauseButtonUI() {
+        if (studioState.isPaused) {
+          pauseIcon.classList.add('hidden');
+          playIcon.classList.remove('hidden');
+          pauseBtn.classList.add('bg-amber-100', 'text-amber-900', 'border-amber-300');
+        } else {
+          pauseIcon.classList.remove('hidden');
+          playIcon.classList.add('hidden');
+          pauseBtn.classList.remove('bg-amber-100', 'text-amber-900', 'border-amber-300');
+        }
+      }
+
+      pauseBtn.addEventListener('click', () => {
+        studioState.isPaused = !studioState.isPaused;
+        updatePauseButtonUI();
+      });
+
+      // Selector de velocidad (1.0x Normal vs 0.5x Lento)
+      const speedBtns = document.querySelectorAll('.speed-toggle-btn');
+      speedBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          studioState.playbackSpeed = parseFloat(btn.dataset.speed);
+          speedBtns.forEach((b) => {
+            b.classList.remove('bg-white', 'text-slate-900', 'shadow-xs');
+            b.classList.add('text-slate-600');
+          });
+          btn.classList.add('bg-white', 'text-slate-900', 'shadow-xs');
+          btn.classList.remove('text-slate-600');
+        });
+      });
+
+      // Selector cíclico de duración en el compositor (5s -> 10s -> 3s)
+      const presets = [5, 10, 3];
+      let presetIdx = 0;
+      const timerPresetBtn = document.getElementById('timerPresetBtn');
+      const timerPresetLabel = document.getElementById('timerPresetLabel');
+
+      timerPresetBtn.addEventListener('click', () => {
+        presetIdx = (presetIdx + 1) % presets.length;
+        studioState.presetSeconds = presets[presetIdx];
+        timerPresetLabel.textContent = `${studioState.presetSeconds}s`;
+      });
+
+      // Envío de nuevos mensajes autodestructivos desde el input inferior
+      let liveCounter = 0;
+      const composerForm = document.getElementById('composerForm');
+      const messageInput = document.getElementById('messageInput');
+
+      composerForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const text = messageInput.value.trim();
+        if (!text) return;
+
+        liveCounter += 1;
+        const msgId = `live-${liveCounter}`;
+        const slot = document.createElement('div');
+        slot.className = 'bomb-msg-slot';
+        liveBombMessages.appendChild(slot);
+
+        const now = new Date();
+        const hours = now.getHours() % 12 || 12;
+        const mins = String(now.getMinutes()).padStart(2, '0');
+        const ampm = now.getHours() >= 12 ? 'p. m.' : 'a. m.';
+        const formattedTime = `${String(hours).padStart(2, '0')}:${mins} ${ampm}`;
+
+        studioState.isPaused = false;
+        updatePauseButtonUI();
+
+        createBombMessageInstance({
+          id: msgId,
+          slotEl: slot,
+          text,
+          durationSec: studioState.presetSeconds,
+          timestamp: formattedTime
+        });
+
+        messageInput.value = '';
+        chatViewport.scrollTop = chatViewport.scrollHeight;
+      });
+
+      // Arrancar demostración inicial en Etapa 1 (5s)
+      startFeaturedBomb(5.0);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeFxCanvas();
+      setupControls();
+      requestAnimationFrame(mainLoop);
+    });
+  </script>
+</body>
+</html>

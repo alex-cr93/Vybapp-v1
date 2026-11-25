@@ -1,0 +1,6 @@
+{
+  "name": "VYB",
+  "description": "Plataforma social, mensajería en tiempo real, llamadas P2P WebRTC, cobros SINPE Móvil y asistente de inteligencia artificial.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

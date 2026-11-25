@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>VYB — Sistema de Reacciones Animadas "Pulso VYB"</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg-studio: #eef1f6;
+      --phone-bg: #0b0f19;
+      --bubble-bg: #171e2e;
+      --dock-bg: rgba(22, 28, 44, 0.92);
+      --accent-purple: #7c4dff;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: radial-gradient(circle at 50% 20%, #f8fafc 0%, #e4e9f2 100%);
+      color: #0f172a;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px 12px 24px;
+      overflow-x: hidden;
+    }
+
+    /* Sleek Mobile Frame */
+    .phone-chassis {
+      width: 100%;
+      max-width: 390px;
+      height: 780px;
+      max-height: calc(100vh - 115px);
+      min-height: 620px;
+      background-color: var(--phone-bg);
+      border-radius: 42px;
+      box-shadow:
+        0 30px 70px -15px rgba(11, 15, 25, 0.35),
+        0 10px 25px -8px rgba(11, 15, 25, 0.18),
+        inset 0 0 0 2px rgba(255, 255, 255, 0.08);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Glassmorphic Reaction Dock */
+    .reaction-dock {
+      background: var(--dock-bg);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      box-shadow:
+        0 16px 36px -6px rgba(0, 0, 0, 0.68),
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+      touch-action: none;
+      will-change: transform, opacity;
+    }
+
+    /* Individual Reaction Slot */
+    .reaction-slot {
+      position: relative;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 14px;
+      cursor: pointer;
+      will-change: transform;
+      transform-origin: center bottom;
+    }
+
+    .reaction-slot-highlight {
+      position: absolute;
+      inset: -2px;
+      border-radius: 15px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.04) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.38);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.12s ease;
+    }
+
+    /* Floating Label Pill above active icon */
+    .floating-label {
+      position: absolute;
+      top: -40px;
+      left: 0;
+      background: rgba(23, 30, 46, 0.96);
+      color: #f8fafc;
+      font-size: 12.5px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.55);
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      will-change: transform, opacity;
+      z-index: 40;
+    }
+
+    /* Message Bubbles */
+    .msg-bubble-incoming {
+      background-color: #171e2e;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 20px;
+      border-top-left-radius: 6px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+      transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .msg-bubble-incoming:active {
+      transform: scale(0.985);
+      background-color: #1c2538;
+    }
+
+    .msg-bubble-outgoing {
+      background: linear-gradient(135deg, #272042 0%, #1c1936 100%);
+      border: 1px solid rgba(124, 77, 255, 0.25);
+      border-radius: 20px;
+      border-top-right-radius: 6px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.24);
+      transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .msg-bubble-outgoing:active {
+      transform: scale(0.985);
+    }
+
+    .msg-target-ring {
+      border-color: rgba(124, 77, 255, 0.42) !important;
+      box-shadow: 0 0 0 1px rgba(124, 77, 255, 0.22), 0 8px 22px rgba(0, 0, 0, 0.32);
+    }
+
+    /* Reaction Badge Pill attached to Message */
+    .reaction-badge {
+      background: #1a2234;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.42);
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 8px 5px 10px;
+      cursor: pointer;
+      position: relative;
+      overflow: visible;
+      transition: transform 0.15s ease, border-color 0.2s ease;
+    }
+
+    .reaction-badge:hover {
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .reaction-badge:active {
+      transform: scale(0.95);
+    }
+
+    .badge-count-pill {
+      background: #252f45;
+      color: #4ade80;
+      font-size: 11.5px;
+      font-weight: 700;
+      min-width: 21px;
+      height: 21px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 6px;
+    }
+
+    /* Sunglasses Glint Sweep for "¡Qué chiva!" */
+    .sloth-glint-sweep {
+      animation: none;
+    }
+
+    /* Custom Scrollbar for Chat Feed */
+    .chat-scroll::-webkit-scrollbar {
+      width: 3px;
+    }
+    .chat-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .chat-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+    }
+
+    /* Input text selection allowed inside input */
+    input {
+      user-select: text;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Mobile Phone Frame -->
+  <main class="phone-chassis" id="phoneFrame" aria-label="Prototipo móvil de chat VYB">
+    
+    <!-- Realistic Android/Material Status Bar -->
+    <header class="px-6 pt-3.5 pb-1.5 flex items-center justify-between text-white text-[13px] font-semibold tracking-tight shrink-0 z-20">
+      <div class="flex items-center gap-1.5">
+        <span class="text-[11px] font-bold tracking-wider text-slate-400 uppercase bg-white/5 px-1.5 py-0.5 rounded">VYB</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <!-- Wi-Fi Icon -->
+        <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 18c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm-4.9-2.3l1.4 1.4C9.4 16.4 10.6 16 12 16s2.6.4 3.5 1.1l1.4-1.4C15.6 14.6 13.9 14 12 14s-3.6.6-4.9 1.7zm-2.8-2.8l1.4 1.4C7.3 13 9.5 12 12 12s4.7 1 6.3 2.3l1.4-1.4C17.7 11.1 15 10 12 10s-5.7 1.1-7.7 2.9zM1.5 10.1l1.4 1.4C5.3 9.3 8.5 8 12 8s6.7 1.3 9.1 3.5l1.4-1.4C19.7 7.5 16 6 12 6S4.3 7.5 1.5 10.1z"/>
+        </svg>
+        <!-- Cellular Signal Triangle -->
+        <svg class="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M2 22h20V2L2 22z"/>
+        </svg>
+        <!-- Battery Icon -->
+        <svg class="w-3.5 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/>
+        </svg>
+        <span class="ml-0.5 font-semibold text-[13.5px]">5:24</span>
+      </div>
+    </header>
+
+    <!-- Chat App Header -->
+    <div class="px-3.5 py-2.5 flex items-center justify-between border-b border-white/[0.07] shrink-0 z-20 bg-[#0B0F19]/90 backdrop-blur-md">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <button type="button" id="backBtn" class="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-white/5 transition" aria-label="Volver">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+          </svg>
+        </button>
+        <!-- Avatar L -->
+        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#8B5CF6] to-[#6D28D9] flex items-center justify-center text-white font-bold text-lg shadow-md shadow-purple-950/50 shrink-0">
+          L
+        </div>
+        <div class="min-w-0">
+          <h1 class="text-white font-bold text-[16px] leading-tight truncate">LourdesMitum</h1>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <span class="w-2 h-2 rounded-full bg-[#22C55E] inline-block shadow-[0_0_6px_#22C55E]"></span>
+            <span class="text-[#8E9BAE] text-[12px] font-medium">En línea</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Call / Video / Menu Icons -->
+      <div class="flex items-center gap-1 text-[#8E9BAE]">
+        <button type="button" class="p-2 rounded-full hover:bg-white/5 hover:text-white transition" aria-label="Llamar">
+          <svg class="w-[19px] h-[19px]" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.46.57 3.58a1 1 0 01-.25 1.01l-2.2 2.2z"/>
+          </svg>
+        </button>
+        <button type="button" class="p-2 rounded-full hover:bg-white/5 hover:text-white transition" aria-label="Videollamada">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 4v-11l-4 4z"/>
+          </svg>
+        </button>
+        <button type="button" class="p-1.5 rounded-full hover:bg-white/5 hover:text-white transition" aria-label="Opciones">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Chat Conversation Stream -->
+    <div id="chatContainer" class="flex-1 px-3.5 pt-4 pb-6 overflow-y-auto chat-scroll relative flex flex-col gap-3">
+      
+      <!-- Message 1 -->
+      <div class="flex flex-col items-start relative group" data-msg-wrapper="msg-1">
+        <div
+          id="msg-1"
+          data-msg-id="msg-1"
+          class="msg-bubble msg-bubble-incoming msg-target-ring max-w-[82%] px-4 pt-3 pb-2.5 cursor-pointer relative"
+          title="Toca para enfocar la barra de reacciones"
+        >
+          <p class="text-[#E2E8F0] text-[15px] leading-[1.38] font-normal pr-2">
+            Mae, cancelaron el partido por lluvia
+          </p>
+          <div class="flex justify-end mt-1">
+            <span class="text-[#7C8B9E] text-[11px] font-medium">5:23 p. m.</span>
+          </div>
+        </div>
+
+        <!-- Reaction Badge for Message 1 (Default: ¡Qué agüevado! 1) -->
+        <div id="badge-anchor-msg-1" class="self-end mr-7 -mt-1.5 z-10 relative">
+          <button
+            type="button"
+            id="badge-msg-1"
+            class="reaction-badge"
+            data-emotion="cloud"
+            data-count="1"
+            aria-label="Reacción ¡Qué agüevado! 1"
+          >
+            <span class="badge-icon-wrap w-6 h-6 flex items-center justify-center relative" id="badge-icon-msg-1"></span>
+            <span class="badge-label text-[#E2E8F0] text-[12.5px] font-medium">¡Qué agüevado!</span>
+            <span class="badge-count-pill" id="badge-count-msg-1">1</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Spacer where Floating Reaction Dock sits by default (between Msg 1 and Msg 2) -->
+      <div id="dock-slot-between" class="h-[66px] w-full shrink-0 transition-all duration-300"></div>
+
+      <!-- Message 2 -->
+      <div class="flex flex-col items-start relative group" data-msg-wrapper="msg-2">
+        <div
+          id="msg-2"
+          data-msg-id="msg-2"
+          class="msg-bubble msg-bubble-incoming max-w-[82%] px-4 pt-3 pb-2.5 cursor-pointer relative"
+          title="Toca para reaccionar a este mensaje"
+        >
+          <p class="text-[#E2E8F0] text-[15px] leading-[1.38] font-normal pr-2">
+            Y encima subieron el precio de la entrada
+          </p>
+          <div class="flex justify-end mt-1">
+            <span class="text-[#7C8B9E] text-[11px] font-medium">5:24 p. m.</span>
+          </div>
+        </div>
+
+        <!-- Optional Reaction Badge Container for Message 2 -->
+        <div id="badge-anchor-msg-2" class="self-end mr-7 -mt-1.5 z-10 relative hidden">
+          <button
+            type="button"
+            id="badge-msg-2"
+            class="reaction-badge"
+            data-emotion=""
+            data-count="0"
+          >
+            <span class="badge-icon-wrap w-6 h-6 flex items-center justify-center relative" id="badge-icon-msg-2"></span>
+            <span class="badge-label text-[#E2E8F0] text-[12.5px] font-medium"></span>
+            <span class="badge-count-pill" id="badge-count-msg-2">1</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Dynamic Extra Messages Container -->
+      <div id="extraMessages" class="flex flex-col gap-3"></div>
+
+      <!-- Subtle Interactive Hint Pill -->
+      <div class="mt-auto pt-3 flex justify-center">
+        <button
+          type="button"
+          id="hintSummonBtn"
+          class="text-[11.5px] text-slate-400/80 hover:text-slate-200 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.06] px-3 py-1 rounded-full transition flex items-center gap-1.5"
+        >
+          <span class="w-1.5 h-1.5 rounded-full bg-[#7C4DFF] animate-pulse"></span>
+          <span>Desliza sobre los íconos o toca un mensaje</span>
+        </button>
+      </div>
+
+      <!-- FLOATING REACTION BAR ("Pulso VYB") -->
+      <div
+        id="reactionDockWrapper"
+        class="absolute left-2.5 right-2.5 z-30 flex justify-center pointer-events-none"
+        style="top: 132px;"
+      >
+        <div id="reactionDock" class="reaction-dock rounded-[26px] px-2 py-1.5 flex items-center justify-between w-full max-w-[358px] pointer-events-auto relative">
+          <!-- Floating Label Pill -->
+          <div id="floatingLabel" class="floating-label">¡Qué chicha!</div>
+          <!-- 7 Reaction Slots Injected via JS -->
+        </div>
+      </div>
+
+    </div>
+
+    <!-- FX & Particle Layer inside Phone Screen -->
+    <div id="fxLayer" class="absolute inset-0 pointer-events-none z-50 overflow-hidden"></div>
+
+    <!-- Bottom Input Bar -->
+    <form id="chatInputForm" class="px-3 py-2.5 bg-[#0B0F19] border-t border-white/[0.06] flex items-center gap-2 shrink-0 z-20">
+      <button
+        type="button"
+        id="plusBtn"
+        class="w-9 h-9 rounded-full border border-slate-600/70 text-slate-400 hover:text-white hover:border-slate-400 flex items-center justify-center transition shrink-0"
+        aria-label="Adjuntar"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14"/>
+        </svg>
+      </button>
+
+      <div class="flex-1 bg-[#161C2C] border border-white/[0.08] rounded-full px-4 py-2 flex items-center gap-2 focus-within:border-[#7C4DFF]/60 transition">
+        <input
+          type="text"
+          id="messageInput"
+          placeholder="Escribe un mensaje..."
+          autocomplete="off"
+          class="bg-transparent text-white placeholder-[#7C8B9E] text-[14.5px] w-full focus:outline-none"
+        />
+        <button type="button" class="text-[#7C8B9E] hover:text-slate-200 transition shrink-0" aria-label="Nota de voz">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2M12 19v4m-4 0h8"/>
+          </svg>
+        </button>
+      </div>
+
+      <button
+        type="submit"
+        class="w-10 h-10 rounded-full bg-[#7C4DFF] hover:bg-[#6E3FF5] active:scale-95 text-white flex items-center justify-center shadow-lg shadow-[#7C4DFF]/35 transition shrink-0"
+        aria-label="Enviar mensaje"
+      >
+        <svg class="w-5 h-5 translate-x-[1px]" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
+      </button>
+    </form>
+
+  </main>
+
+  <!-- Compact Studio Speed & Replay Control Bar -->
+  <section class="mt-3.5 w-full max-w-[390px] bg-white/85 backdrop-blur-md border border-slate-200/90 shadow-sm rounded-2xl px-3 py-2 flex items-center justify-between gap-2 text-xs">
+    <button
+      type="button"
+      id="replayCascadeBtn"
+      class="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-semibold flex items-center gap-1.5 transition cursor-pointer"
+      title="Repetir animación de entrada en cascada"
+    >
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+      </svg>
+      <span>Cascada</span>
+    </button>
+
+    <!-- Speed Segmented Control -->
+    <div class="flex items-center bg-slate-200/80 p-0.5 rounded-xl" role="group" aria-label="Velocidad de animación">
+      <button
+        type="button"
+        id="speedNormalBtn"
+        data-speed="1"
+        class="speed-btn px-2.5 py-1 rounded-lg font-semibold bg-white text-slate-900 shadow-xs transition cursor-pointer"
+      >
+        1.0x Normal
+      </button>
+      <button
+        type="button"
+        id="speedSlowBtn"
+        data-speed="0.4"
+        class="speed-btn px-2.5 py-1 rounded-lg font-semibold text-slate-600 hover:text-slate-900 transition cursor-pointer"
+      >
+        0.4x Lento
+      </button>
+    </div>
+
+    <button
+      type="button"
+      id="replayBadgeBtn"
+      class="px-2.5 py-1.5 rounded-xl bg-purple-100 hover:bg-purple-200/80 active:scale-95 text-purple-800 font-semibold flex items-center gap-1 transition cursor-pointer"
+      title="Repetir micro-animación de la reacción actual"
+    >
+      <span>✨ Pulso</span>
+    </button>
+  </section>
+
+  <script>
+    /**
+     * ============================================================================
+     * VYB — SISTEMA DE REACCIONES ANIMADAS "PULSO VYB"
+     * Arquitectura de Física de Resorte, Scrubbing Magnético y Partículas 3D-SVG
+     * ============================================================================
+     */
+
+    // 1. Definición de las 7 emociones personalizadas y sus vectores SVG glossy 3D
+    const EMOTIONS = [
+      {
+        id: 'shaka',
+        label: 'Pura vida',
+        svg: `
+          <svg viewBox="0 0 64 64" class="w-full h-full overflow-visible drop-shadow-[0_4px_6px_rgba(0,0,0,0.45)]">
+            <defs>
+              <linearGradient id="shakaSkin" x1="15%" y1="10%" x2="85%" y2="90%">
+                <stop offset="0%" stop-color="#F7B77D"/>
+                <stop offset="55%" stop-color="#E59553"/>
+                <stop offset="100%" stop-color="#B96528"/>
+              </linearGradient>
+              <linearGradient id="shakaShadow" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#C97336"/>
+                <stop offset="100%" stop-color="#8F4817"/>
+              </linearGradient>
+              <linearGradient id="wristBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#4DA3FF"/>
+                <stop offset="50%" stop-color="#2176FF"/>
+                <stop offset="100%" stop-color="#1147B8"/>
+              </linearGradient>
+            </defs>
+            <!-- Palm & Thumb + Pinky -->
+            <path d="M18 38 C13 33, 9 23, 12 19 C14.5 16, 18.5 19, 21 25 L23 28 C25 24, 38 25, 42 29 L48 22 C51 18.5, 55.5 20.5, 54 24.5 C52.5 28.5, 47 36, 43 41 C39 46, 33 49, 27 48 C22 47, 20 42, 18 38 Z" fill="url(#shakaSkin)"/>
+            <!-- Curled Middle Fingers (3D rounded capsules) -->
+            <rect x="22" y="25" width="7" height="11" rx="3.5" transform="rotate(-14 25 30)" fill="url(#shakaSkin)" stroke="#B86429" stroke-width="0.8"/>
+            <rect x="28" y="25.5" width="7" height="11.5" rx="3.5" transform="rotate(-10 31 31)" fill="url(#shakaSkin)" stroke="#B86429" stroke-width="0.8"/>
+            <rect x="34" y="27" width="6.8" height="10.5" rx="3.4" transform="rotate(-6 37 32)" fill="url(#shakaSkin)" stroke="#B86429" stroke-width="0.8"/>
+            <!-- Palm highlight -->
+            <path d="M14 22 C15 20, 17 21, 18.5 24" stroke="#FFE0BD" stroke-width="1.6" stroke-linecap="round" fill="none" opacity="0.75"/>
+            <!-- Blue Wristband -->
+            <path d="M15 41.5 L33.5 51.5 C35 52.3 35.3 54.3 34.1 55.5 L32.2 57.4 C31 58.6 29.1 58.8 27.6 57.9 L11.5 48.8 C10 47.9 9.6 46 10.7 44.6 L12.3 42.4 C13.1 41.4 14 41 15 41.5 Z" fill="url(#wristBlue)"/>
+            <path d="M14.5 43.2 L31.5 52.5" stroke="#90CAF9" stroke-width="1.3" stroke-linecap="round" opacity="0.7"/>
+          </svg>
+        `
+      },
+      {
+        id: 'vibra',
+        label: 'Buena vibra',
+        svg: `
+          <svg viewBox="0 0 64 64" class="w-full h-full overflow-visible drop-shadow-[0_4px_8px_rgba(124,77,255,0.5)]">
+            <defs>
+              <radialGradient id="vibraAura" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#A855F7" stop-opacity="0.75"/>
+                <stop offset="65%" stop-color="#6D28D9" stop-opacity="0.32"/>
+                <stop offset="100%" stop-color="#6D28D9" stop-opacity="0"/>
+              </radialGradient>
+              <linearGradient id="boltGold" x1="20%" y1="0%" x2="80%" y2="100%">
+                <stop offset="0%" stop-color="#FFF59D"/>
+                <stop offset="40%" stop-color="#FFD54F"/>
+                <stop offset="85%" stop-color="#FF9800"/>
+                <stop offset="100%" stop-color="#E65100"/>
+              </linearGradient>
+            </defs>
+            <!-- Purple Aura -->
+            <circle cx="32" cy="32" r="27" fill="url(#vibraAura)"/>
+            <!-- Lightning Bolt -->
+            <path d="M36.5 9 L17 34.5 H31 L26.5 55 L47 29.5 H33 L36.5 9 Z" fill="url(#boltGold)" stroke="#FFF8E1" stroke-width="1" stroke-linejoin="round"/>
+            <!-- Specular Edge -->
+            <path d="M34.5 14 L21 32.5 H31.5" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" fill="none" opacity="0.8"/>
+            <!-- Sparkles -->
+            <path d="M16 17 L17.3 20.5 L20.8 21.8 L17.3 23.1 L16 26.6 L14.7 23.1 L11.2 21.8 L14.7 20.5 Z" fill="#FFE082"/>
+            <path d="M48 41 L49 43.5 L51.5 44.5 L49 45.5 L48 48 L47 45.5 L44.5 44.5 L47 43.5 Z" fill="#80DEEA"/>
+            <circle cx="46" cy="16" r="1.8" fill="#E1BEE7"/>
+          </svg>
+        `
+      },
+      {
+        id: 'volcan',
+        label: '¡Qué rajado!',
+        svg: `
+          <svg viewBox="0 0 64 64" class="w-full h-full overflow-visible drop-shadow-[0_4px_7px_rgba(0,0,0,0.5)]">
+            <defs>
+              <linearGradient id="volcanoRock" x1="20%" y1="15%" x2="85%" y2="95%">
+                <stop offset="0%" stop-color="#8D6E63"/>
+                <stop offset="55%" stop-color="#5D4037"/>
+                <stop offset="100%" stop-color="#3E2723"/>
+              </linearGradient>
+              <linearGradient id="lavaFlow" x1="50%" y1="0%" x2="50%" y2="100%">
+                <stop offset="0%" stop-color="#FFF176"/>
+                <stop offset="35%" stop-color="#FF9100"/>
+                <stop offset="100%" stop-color="#DD2C00"/>
+              </linearGradient>
+              <linearGradient id="ashCloud" x1="30%" y1="0%" x2="70%" y2="100%">
+                <stop offset="0%" stop-color="#FFFFFF"/>
+                <stop offset="65%" stop-color="#ECEFF1"/>
+                <stop offset="100%" stop-color="#B0BEC5"/>
+              </linearGradient>
+            </defs>
+            <!-- Fluffy White Ash Cloud -->
+            <path d="M21 20 C17 20, 15 16.5, 18 14 C18.5 10.5, 23 9, 26.5 11 C29 8.5, 35 8.5, 37.5 11 C41 9, 45.5 10.5, 46 14 C49 16.5, 47 20, 43 20 Z" fill="url(#ashCloud)"/>
+            <!-- Volcano Cone -->
+            <path d="M23 23 H41 L53 51 C54.5 54, 52.5 56, 49 56 H15 C11.5 56, 9.5 54, 11 51 L23 23 Z" fill="url(#volcanoRock)"/>
+            <!-- Glowing Lava Streams -->
+            <path d="M23 23 H41 L43 29 C41 31, 39.5 28, 38.5 33 C37.5 38, 35 37, 34.5 31 C34 27, 32.5 28, 32 36 C31.5 41, 28.5 40, 28 33 C27.5 28, 25.5 30, 24 34 C22.5 37, 20.5 34, 21.5 29 L23 23 Z" fill="url(#lavaFlow)"/>
+            <!-- Subtle Cute Volcano Expression (matching screenshot) -->
+            <circle cx="26.5" cy="44" r="1.6" fill="#281815"/>
+            <circle cx="37.5" cy="44" r="1.6" fill="#281815"/>
+            <path d="M29.5 47.5 Q32 45.8 34.5 47.5" stroke="#281815" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+          </svg>
+        `
+      },
+      {
+        id: 'sloth',
+        label: '¡Qué chiva!',
+        svg: `
+          <svg viewBox="0 0 64 64" class="w-full h-full overflow-visible drop-shadow-[0_4px_7px_rgba(0,0,0,0.5)]">
+            <defs>
+              <linearGradient id="slothFur" x1="20%" y1="10%" x2="80%" y2="95%">
+                <stop offset="0%" stop-color="#A1887F"/>
+                <stop offset="60%" stop-color="#795548"/>
+                <stop offset="100%" stop-color="#4E342E"/>
+              </linearGradient>
+              <linearGradient id="slothFace" x1="50%" y1="0%" x2="50%" y2="100%">
+                <stop offset="0%" stop-color="#FFF8F0"/>
+                <stop offset="100%" stop-color="#E6D5C3"/>
+              </linearGradient>
+              <linearGradient id="retroLens" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#FF4081"/>
+                <stop offset="50%" stop-color="#FFD740"/>
+                <stop offset="100%" stop-color="#00E5FF"/>
+              </linearGradient>
+              <clipPath id="lensesClip">
+                <rect x="14" y="22" width="16" height="11" rx="4"/>
+                <rect x="34" y="22" width="16" height="11" rx="4"/>
+              </clipPath>
+            </defs>
+            <!-- Shoulders / Body -->
+            <path d="M13 55 C14 44, 21 39, 32 39 C43 39, 50 44, 51 55 Z" fill="url(#slothFur)"/>
+            <path d="M21 55 C22 47, 26 44, 32 44 C38 44, 42 47, 43 55 Z" fill="#D7CCC8"/>
+            <!-- Head -->
+            <ellipse cx="32" cy="27" rx="18" ry="15.5" fill="url(#slothFur)"/>
+            <!-- Cream Face Mask -->
+            <path d="M17.5 27 C17.5 19.5, 24 16.5, 32 16.5 C40 16.5, 46.5 19.5, 46.5 27 C46.5 34.5, 40 38.5, 32 38.5 C24 38.5, 17.5 34.5, 17.5 27 Z" fill="url(#slothFace)"/>
+            <!-- Sloth Nose & Chill Smile -->
+            <ellipse cx="32" cy="32" rx="3.2" ry="2.1" fill="#3E2723"/>
+            <path d="M28.5 35 Q32 37.5 35.5 35" stroke="#4E342E" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+            <!-- Retro Sunglasses Frames -->
+            <rect x="13" y="21" width="18" height="13" rx="4.5" fill="#212121"/>
+            <rect x="33" y="21" width="18" height="13" rx="4.5" fill="#212121"/>
+            <path d="M30 24.5 H34" stroke="#212121" stroke-width="2.5"/>
+            <!-- Rainbow Lenses -->
+            <rect x="14.5" y="22.5" width="15" height="10" rx="3.5" fill="url(#retroLens)"/>
+            <rect x="34.5" y="22.5" width="15" height="10" rx="3.5" fill="url(#retroLens)"/>
+            <!-- Specular Glint on Lenses -->
+            <g clip-path="url(#lensesClip)">
+              <polygon class="sloth-glint" points="10,20 16,20 22,35 16,35" fill="#FFFFFF" opacity="0.55"/>
+              <polygon class="sloth-glint" points="30,20 36,20 42,35 36,35" fill="#FFFFFF" opacity="0.55"/>
+            </g>
+          </svg>
+        `
+      },
+      {
+        id: 'pin',
+        label: '¡De una!',
+        svg: `
+          <svg viewBox="0 0 64 64" class="w-full h-full overflow-visible drop-shadow-[0_5px_8px_rgba(229,57,53,0.45)]">
+            <defs>
+              <linearGradient id="pinCoral" x1="20%" y1="10%" x2="85%" y2="95%">
+                <stop offset="0%" stop-color="#FF7961"/>
+                <stop offset="45%" stop-color="#F44336"/>
+                <stop offset="100%" stop-color="#B71C1C"/>
+              </linearGradient>
+              <radialGradient id="pinCenter" cx="40%" cy="35%" r="60%">
+                <stop offset="0%" stop-color="#FFFFFF"/>
+                <stop offset="100%" stop-color="#FFE0D6"/>
+              </radialGradient>
+            </defs>
+            <!-- Signal Waves (top left & top right) -->
+            <path d="M13 24 C12 18, 15.5 13, 21 11.5" stroke="#FF8A65" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+            <path d="M9 22 C8 14.5, 12.5 8.5, 19.5 7" stroke="#FF8A65" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.65"/>
+            <path d="M51 24 C52 18, 48.5 13, 43 11.5" stroke="#FF8A65" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+            <path d="M55 22 C56 14.5, 51.5 8.5, 44.5 7" stroke="#FF8A65" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.65"/>
+            <!-- Teardrop Map Pin -->
+            <path d="M32 11 C21.5 11, 14 18.8, 14 28.8 C14 40.5, 28.5 52.8, 30.8 54.6 C31.5 55.2, 32.5 55.2, 33.2 54.6 C35.5 52.8, 50 40.5, 50 28.8 C50 18.8, 42.5 11, 32 11 Z" fill="url(#pinCoral)"/>
+            <!-- Glossy Rim Highlight -->
+            <path d="M18.5 24 C19.5 18, 24.5 14.2, 31 14" stroke="#FFCDD2" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.7"/>
+            <!-- Inner White Circle -->
+            <circle cx="32" cy="27.5" r="7.5" fill="url(#pinCenter)"/>
+          </svg>
+        `
+      },
+      {
+        id: 'cloud',
+        label: '¡Qué agüevado!',
+        svg: `
+          <svg viewBox="0 0 64 64" class="w-full h-full overflow-visible drop-shadow-[0_4px_7px_rgba(0,0,0,0.48)]">
+            <defs>
+              <linearGradient id="sadCloudGrad" x1="30%" y1="10%" x2="70%" y2="95%">
+                <stop offset="0%" stop-color="#B0BEC5"/>
+                <stop offset="45%" stop-color="#78909C"/>
+                <stop offset="100%" stop-color="#455A64"/>
+              </linearGradient>
+              <linearGradient id="rainDropGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#81D4FA"/>
+                <stop offset="100%" stop-color="#0288D1"/>
+              </linearGradient>
+            </defs>
+            <!-- Cloud Silhouette -->
+            <path d="M17 42 H47 C53.5 42, 58 37.5, 58 31.5 C58 26.2, 54.2 21.8, 49 21.2 C47.2 13.8, 40.5 8.5, 32.5 8.5 C24.2 8.5, 17.3 14.2, 15.8 22 C10.5 23, 6.5 27.5, 6.5 33 C6.5 38.2, 11.2 42, 17 42 Z" fill="url(#sadCloudGrad)"/>
+            <!-- Soft Top Highlight -->
+            <path d="M20 18 C22.5 13.5, 27 11.2, 32.5 11.2" stroke="#ECEFF1" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.65"/>
+            <!-- Sad Puppy Eyes -->
+            <circle cx="25.5" cy="28.5" r="2.6" fill="#1E293B"/>
+            <circle cx="24.7" cy="27.6" r="0.9" fill="#FFFFFF"/>
+            <circle cx="38.5" cy="28.5" r="2.6" fill="#1E293B"/>
+            <circle cx="37.7" cy="27.6" r="0.9" fill="#FFFFFF"/>
+            <!-- Sad Eyebrows -->
+            <path d="M22.5 24.5 L27.5 23.2" stroke="#334155" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M41.5 24.5 L36.5 23.2" stroke="#334155" stroke-width="1.5" stroke-linecap="round"/>
+            <!-- Sad Mouth -->
+            <path d="M29 35.5 Q32 33 35 35.5" stroke="#1E293B" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+            <!-- Raindrops -->
+            <path d="M21 46 C21 46, 18.5 50, 18.5 51.5 A2.5 2.5 0 0 0 23.5 51.5 C23.5 50, 21 46, 21 46 Z" fill="url(#rainDropGrad)"/>
+            <path d="M32 48 C32 48, 29.5 52, 29.5 53.5 A2.5 2.5 0 0 0 34.5 53.5 C34.5 52, 32 48, 32 48 Z" fill="url(#rainDropGrad)"/>
+            <path d="M43 46 C43 46, 40.5 50, 40.5 51.5 A2.5 2.5 0 0 0 45.5 51.5 C45.5 50, 43 46, 43 46 Z" fill="url(#rainDropGrad)"/>
+          </svg>
+        `
+      },
+      {
+        id: 'angry',
+        label: '¡Qué chicha!',
+        svg: `
+          <svg viewBox="0 0 64 64" class="w-full h-full overflow-visible drop-shadow-[0_5px_9px_rgba(211,47,47,0.5)]">
+            <defs>
+              <radialGradient id="angryRed" cx="40%" cy="30%" r="65%">
+                <stop offset="0%" stop-color="#FF6E6E"/>
+                <stop offset="50%" stop-color="#E53935"/>
+                <stop offset="100%" stop-color="#9A0007"/>
+              </radialGradient>
+              <linearGradient id="steamWhite" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#FFFFFF"/>
+                <stop offset="100%" stop-color="#CFD8DC"/>
+              </linearGradient>
+            </defs>
+            <!-- Left & Right Steam Puffs -->
+            <path d="M13 24 C9 23, 6 19.5, 8 16 C7 12.5, 11 9.5, 14.5 11.5 C17.5 10.5, 20.5 13, 19.5 16.5 L21 22 Z" fill="url(#steamWhite)"/>
+            <path d="M51 24 C55 23, 58 19.5, 56 16 C57 12.5, 53 9.5, 49.5 11.5 C46.5 10.5, 43.5 13, 44.5 16.5 L43 22 Z" fill="url(#steamWhite)"/>
+            <!-- Furious Red Head -->
+            <circle cx="32" cy="34" r="19.5" fill="url(#angryRed)"/>
+            <!-- Glossy Forehead Highlight -->
+            <ellipse cx="27" cy="21" rx="7" ry="3.2" transform="rotate(-18 27 21)" fill="#FFCDD2" opacity="0.4"/>
+            <!-- Furrowed Angry Eyebrows -->
+            <path d="M20 28.5 L29.5 32.5" stroke="#2B0909" stroke-width="2.6" stroke-linecap="round"/>
+            <path d="M44 28.5 L34.5 32.5" stroke="#2B0909" stroke-width="2.6" stroke-linecap="round"/>
+            <!-- Angry Eyes -->
+            <circle cx="25" cy="34" r="2.2" fill="#2B0909"/>
+            <circle cx="39" cy="34" r="2.2" fill="#2B0909"/>
+            <!-- Grumpy Frown -->
+            <path d="M26.5 43 Q32 39.5 37.5 43" stroke="#2B0909" stroke-width="2.3" stroke-linecap="round" fill="none"/>
+            <!-- Raised Clenched Fists -->
+            <circle cx="14.5" cy="40.5" r="5.2" fill="url(#angryRed)" stroke="#8E0000" stroke-width="0.9"/>
+            <circle cx="49.5" cy="40.5" r="5.2" fill="url(#angryRed)" stroke="#8E0000" stroke-width="0.9"/>
+          </svg>
+        `
+      }
+    ];
+
+    // 2. Estado global de la aplicación y física
+    const state = {
+      playbackSpeed: 1.0,
+      targetMessageId: 'msg-1',
+      lastSelectedEmotionId: 'cloud',
+      isDockVisible: true,
+      hoveredIndex: -1,
+      pointerActive: false,
+      pointerX: 0,
+      prevPointerX: 0,
+      pointerVelocity: 0,
+      // Estados interpolados de los 7 slots
+      slots: EMOTIONS.map(() => ({
+        scale: 0,
+        targetScale: 1,
+        y: 16,
+        targetY: 0,
+        x: 0,
+        targetX: 0,
+        cascadeDelay: 0,
+        cascadeElapsed: 0,
+        cascadeDone: false
+      })),
+      // Estado del dock completo
+      dock: {
+        scale: 0.86,
+        opacity: 0,
+        y: 12
+      },
+      // Estado de la etiqueta flotante
+      label: {
+        x: 150,
+        targetX: 150,
+        opacity: 0,
+        tilt: 0
+      },
+      // Partículas físicas activas
+      particles: []
+    };
+
+    // Referencias DOM
+    const phoneFrame = document.getElementById('phoneFrame');
+    const chatContainer = document.getElementById('chatContainer');
+    const reactionDockWrapper = document.getElementById('reactionDockWrapper');
+    const reactionDock = document.getElementById('reactionDock');
+    const floatingLabel = document.getElementById('floatingLabel');
+    const fxLayer = document.getElementById('fxLayer');
+    const dockSlotBetween = document.getElementById('dock-slot-between');
+    const extraMessages = document.getElementById('extraMessages');
+    const chatInputForm = document.getElementById('chatInputForm');
+    const messageInput = document.getElementById('messageInput');
+
+    // Almacén de elementos DOM de los slots
+    const slotElements = [];
+    const slotHighlightElements = [];
+
+    // 3. Inicialización de los 7 slots en el dock
+    function initReactionDock() {
+      EMOTIONS.forEach((emotion, idx) => {
+        const slot = document.createElement('div');
+        slot.className = 'reaction-slot';
+        slot.dataset.index = idx;
+        slot.dataset.emotion = emotion.id;
+        slot.setAttribute('role', 'button');
+        slot.setAttribute('aria-label', emotion.label);
+
+        const highlight = document.createElement('div');
+        highlight.className = 'reaction-slot-highlight';
+
+        const iconContainer = document.createElement('div');
+        iconContainer.className = 'w-9 h-9 pointer-events-none relative z-10';
+        iconContainer.innerHTML = emotion.svg;
+
+        slot.appendChild(highlight);
+        slot.appendChild(iconContainer);
+        reactionDock.appendChild(slot);
+
+        slotElements.push(slot);
+        slotHighlightElements.push(highlight);
+      });
+
+      // Renderizar badge inicial en Mensaje 1 ("¡Qué agüevado! 1")
+      const initialCloud = EMOTIONS.find(e => e.id === 'cloud');
+      document.getElementById('badge-icon-msg-1').innerHTML = initialCloud.svg;
+    }
+
+    // 4. Animación de Entrada en Cascada con Resorte ("Spring Cascade Entrance")
+    function triggerSpringCascade() {
+      state.isDockVisible = true;
+      reactionDockWrapper.style.display = 'flex';
+      state.dock.scale = 0.84;
+      state.dock.opacity = 0;
+      state.dock.y = 14;
+
+      state.slots.forEach((s, idx) => {
+        s.scale = 0.01;
+        s.y = 18;
+        s.x = 0;
+        s.cascadeDelay = idx * 0.025; // 25ms stagger exacto
+        s.cascadeElapsed = 0;
+        s.cascadeDone = false;
+      });
+    }
+
+    // 5. Cálculo de Curva Gaussiana Magnética (Touch Scrubbing & Mouse Hover)
+    function updateMagneticTargets() {
+      if (!state.pointerActive || state.hoveredIndex === -1) {
+        state.slots.forEach((s) => {
+          if (s.cascadeDone) {
+            s.targetScale = 1.0;
+            s.targetY = 0;
+            s.targetX = 0;
+          }
+        });
+        state.label.opacity = 0;
+        slotHighlightElements.forEach(el => (el.style.opacity = '0'));
+        return;
+      }
+
+      const dockRect = reactionDock.getBoundingClientRect();
+      const sigma = 44; // Radio de influencia magnética en px
+
+      let closestIdx = 0;
+      let minDist = Infinity;
+
+      slotElements.forEach((slotEl, idx) => {
+        const rect = slotEl.getBoundingClientRect();
+        // Centro base sin desplazamiento X acumulado
+        const baseCenter = (rect.left - dockRect.left) + rect.width / 2 - state.slots[idx].x;
+        const dist = state.pointerX - baseCenter;
+        const absDist = Math.abs(dist);
+
+        if (absDist < minDist) {
+          minDist = absDist;
+          closestIdx = idx;
+        }
+
+        // Factor Gaussiano [0..1]
+        const g = Math.exp(-(dist * dist) / (2 * sigma * sigma));
+
+        // Escala máxima 1.45x en el centro, ~1.15x en vecinos inmediatos
+        state.slots[idx].targetScale = 1 + 0.45 * g;
+        // Elevación -14px hacia arriba
+        state.slots[idx].targetY = -14 * g;
+
+        // Empuje lateral sutil para evitar colisiones entre vecinos
+        if (absDist > 2 && absDist < 95) {
+          const push = Math.sign(-dist) * 6.5 * Math.sin((absDist / 95) * Math.PI);
+          state.slots[idx].targetX = push;
+        } else {
+          state.slots[idx].targetX = 0;
+        }
+      });
+
+      state.hoveredIndex = closestIdx;
+
+      // Actualizar tarjeta de resaltado detrás del ícono activo
+      slotHighlightElements.forEach((el, idx) => {
+        el.style.opacity = idx === closestIdx ? '1' : '0';
+      });
+
+      // Actualizar Etiqueta Flotante sobre el ícono activo
+      const activeEmotion = EMOTIONS[closestIdx];
+      if (floatingLabel.textContent !== activeEmotion.label) {
+        floatingLabel.textContent = activeEmotion.label;
+      }
+
+      const activeRect = slotElements[closestIdx].getBoundingClientRect();
+      const labelWidth = floatingLabel.offsetWidth || 96;
+      const rawCenterX = (activeRect.left - dockRect.left) + activeRect.width / 2;
+      // Limitar dentro de los bordes del dock para que nunca se corte
+      const clampedX = Math.max(
+        labelWidth / 2 + 4,
+        Math.min(dockRect.width - labelWidth / 2 - 4, rawCenterX)
+      );
+
+      state.label.targetX = clampedX;
+      state.label.opacity = 1;
+    }
+
+    // 6. Eventos de Interacción Táctil y Cursor (Pointer Events unificados)
+    function setupDockInteractions() {
+      const handlePointerMove = (e) => {
+        const dockRect = reactionDock.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        // Verificar si el puntero está dentro del área expandida del dock
+        const insideY = clientY >= dockRect.top - 48 && clientY <= dockRect.bottom + 24;
+        const insideX = clientX >= dockRect.left - 16 && clientX <= dockRect.right + 16;
+
+        if (!insideX || !insideY) {
+          if (e.type === 'pointermove' && !state.pointerActive) return;
+        }
+
+        const relX = clientX - dockRect.left;
+        state.pointerVelocity = relX - state.prevPointerX;
+        state.prevPointerX = relX;
+        state.pointerX = relX;
+        state.pointerActive = true;
+        if (state.hoveredIndex === -1) state.hoveredIndex = 0;
+
+        updateMagneticTargets();
+      };
+
+      reactionDock.addEventListener('pointerdown', (e) => {
+        reactionDock.setPointerCapture(e.pointerId);
+        const dockRect = reactionDock.getBoundingClientRect();
+        state.prevPointerX = e.clientX - dockRect.left;
+        state.pointerVelocity = 0;
+        handlePointerMove(e);
+      });
+
+      reactionDock.addEventListener('pointermove', handlePointerMove);
+
+      reactionDock.addEventListener('pointerleave', (e) => {
+        if (e.buttons === 0) {
+          state.pointerActive = false;
+          state.hoveredIndex = -1;
+          state.pointerVelocity = 0;
+          updateMagneticTargets();
+        }
+      });
+
+      reactionDock.addEventListener('pointerup', (e) => {
+        if (state.pointerActive && state.hoveredIndex >= 0) {
+          const chosenEmotion = EMOTIONS[state.hoveredIndex];
+          selectEmotion(chosenEmotion, state.hoveredIndex);
+        }
+        state.pointerActive = false;
+        state.hoveredIndex = -1;
+        state.pointerVelocity = 0;
+        updateMagneticTargets();
+      });
+
+      reactionDock.addEventListener('pointercancel', () => {
+        state.pointerActive = false;
+        state.hoveredIndex = -1;
+        updateMagneticTargets();
+      });
+    }
+
+    // 7. Selección de Emoción: Vuelo Parabólico + Actualización de Badge + Micro-animación de 1.2s
+    function selectEmotion(emotion, slotIndex) {
+      state.lastSelectedEmotionId = emotion.id;
+      const targetMsgId = state.targetMessageId;
+      const slotEl = slotElements[slotIndex];
+      const slotRect = slotEl.getBoundingClientRect();
+      const phoneRect = phoneFrame.getBoundingClientRect();
+
+      // Asegurar que el badge del mensaje objetivo sea visible para calcular destino
+      const anchorEl = document.getElementById(`badge-anchor-${targetMsgId}`);
+      const badgeEl = document.getElementById(`badge-${targetMsgId}`);
+      const iconWrapEl = document.getElementById(`badge-icon-${targetMsgId}`);
+      const labelEl = badgeEl.querySelector('.badge-label');
+      const countEl = document.getElementById(`badge-count-${targetMsgId}`);
+
+      const wasHidden = anchorEl.classList.contains('hidden');
+      if (wasHidden) {
+        anchorEl.classList.remove('hidden');
+        badgeEl.style.opacity = '0';
+      }
+
+      const targetRect = badgeEl.getBoundingClientRect();
+
+      // Coordenadas relativas al phoneFrame
+      const startX = (slotRect.left - phoneRect.left) + slotRect.width / 2;
+      const startY = (slotRect.top - phoneRect.top) + slotRect.height / 2;
+      const endX = (targetRect.left - phoneRect.left) + 22;
+      const endY = (targetRect.top - phoneRect.top) + targetRect.height / 2;
+
+      // Crear clon volador en el fxLayer
+      const flyer = document.createElement('div');
+      flyer.className = 'w-10 h-10 absolute -ml-5 -mt-5 pointer-events-none z-50';
+      flyer.innerHTML = emotion.svg;
+      fxLayer.appendChild(flyer);
+
+      const flightDuration = 360 / state.playbackSpeed;
+      const flightStart = performance.now();
+
+      // Punto de control elevado para trayectoria curva Bézier
+      const ctrlX = (startX + endX) / 2 + (startX > endX ? 28 : -28);
+      const ctrlY = Math.min(startY, endY) - 46;
+
+      function animateFlight(now) {
+        const rawProgress = (now - flightStart) / flightDuration;
+        const t = Math.min(1, Math.max(0, rawProgress));
+        // Ease-out cúbico suave
+        const ease = 1 - Math.pow(1 - t, 3);
+
+        // Curva Bézier cuadrática
+        const inv = 1 - ease;
+        const curX = inv * inv * startX + 2 * inv * ease * ctrlX + ease * ease * endX;
+        const curY = inv * inv * startY + 2 * inv * ease * ctrlY + ease * ease * endY;
+        const scale = 1.38 - 0.55 * ease;
+        const rotate = Math.sin(ease * Math.PI) * (startX > endX ? -16 : 16);
+
+        flyer.style.transform = `translate3d(${curX}px, ${curY}px, 0) scale(${scale}) rotate(${rotate}deg)`;
+
+        if (t < 1) {
+          requestAnimationFrame(animateFlight);
+        } else {
+          flyer.remove();
+
+          // Actualizar contenido del badge
+          const prevEmotion = badgeEl.dataset.emotion;
+          let count = parseInt(badgeEl.dataset.count || '0', 10);
+
+          if (prevEmotion === emotion.id) {
+            count += 1;
+          } else {
+            count = 1;
+          }
+
+          badgeEl.dataset.emotion = emotion.id;
+          badgeEl.dataset.count = String(count);
+          iconWrapEl.innerHTML = emotion.svg;
+          labelEl.textContent = emotion.label;
+          countEl.textContent = String(count);
+          badgeEl.style.opacity = '1';
+
+          // Ejecutar la micro-animación exclusiva de 1.2s + partículas
+          playSignatureMicroAnimation(emotion.id, badgeEl, iconWrapEl);
+        }
+      }
+
+      requestAnimationFrame(animateFlight);
+    }
+
+    // 8. Micro-Animaciones Exclusivas de 1.2s para cada una de las 7 Emociones
+    function playSignatureMicroAnimation(emotionId, badgeEl, iconWrapEl) {
+      const speed = state.playbackSpeed;
+      const duration = 1200; // 1.2s exactos a velocidad 1.0x
+
+      // Pop inicial en la píldora completa
+      badgeEl.animate(
+        [
+          { transform: 'scale(0.86)' },
+          { transform: 'scale(1.1)', offset: 0.22 },
+          { transform: 'scale(0.97)', offset: 0.45 },
+          { transform: 'scale(1)' }
+        ],
+        { duration: 520, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', playbackRate: speed }
+      );
+
+      const badgeRect = badgeEl.getBoundingClientRect();
+      const phoneRect = phoneFrame.getBoundingClientRect();
+      const originX = (badgeRect.left - phoneRect.left) + 22;
+      const originY = (badgeRect.top - phoneRect.top) + badgeRect.height / 2;
+
+      switch (emotionId) {
+        case 'shaka': {
+          // Pura vida: doble saludo fluido Shaka + destellos dorados y cian
+          iconWrapEl.animate(
+            [
+              { transform: 'scale(1) rotate(0deg)' },
+              { transform: 'scale(1.42) rotate(-20deg)', offset: 0.18 },
+              { transform: 'scale(1.45) rotate(24deg)', offset: 0.38 },
+              { transform: 'scale(1.38) rotate(-16deg)', offset: 0.58 },
+              { transform: 'scale(1.25) rotate(14deg)', offset: 0.78 },
+              { transform: 'scale(1) rotate(0deg)', offset: 1 }
+            ],
+            { duration, easing: 'ease-in-out', playbackRate: speed }
+          );
+
+          const colors = ['#FFD54F', '#00E5FF', '#FFF59D', '#4DD0E1'];
+          for (let i = 0; i < 10; i++) {
+            const angle = (Math.PI * 2 * i) / 10 + (Math.random() - 0.5) * 0.3;
+            const spd = 48 + Math.random() * 44;
+            spawnParticle({
+              x: originX,
+              y: originY,
+              vx: Math.cos(angle) * spd,
+              vy: Math.sin(angle) * spd - 12,
+              gravity: 35,
+              life: 1.05,
+              size: 7 + Math.random() * 4,
+              color: colors[i % colors.length],
+              shape: 'star'
+            });
+          }
+          break;
+        }
+
+        case 'vibra': {
+          // Buena vibra: zumbido eléctrico rápido + flash de brillo + estrellas orbitando
+          iconWrapEl.animate(
+            [
+              { transform: 'scale(1) translate(0, 0)', filter: 'brightness(1)' },
+              { transform: 'scale(1.45) translate(-2px, -1px)', filter: 'brightness(1.85)', offset: 0.1 },
+              { transform: 'scale(1.42) translate(2.5px, 1px)', filter: 'brightness(1.3)', offset: 0.2 },
+              { transform: 'scale(1.48) translate(-2px, 1.5px)', filter: 'brightness(1.9)', offset: 0.32 },
+              { transform: 'scale(1.4) translate(2px, -1.5px)', filter: 'brightness(1.4)', offset: 0.45 },
+              { transform: 'scale(1.32) translate(-1.5px, 0px)', filter: 'brightness(1.6)', offset: 0.62 },
+              { transform: 'scale(1.15) translate(1px, 0px)', filter: 'brightness(1.2)', offset: 0.8 },
+              { transform: 'scale(1) translate(0, 0)', filter: 'brightness(1)', offset: 1 }
+            ],
+            { duration, easing: 'linear', playbackRate: speed }
+          );
+
+          for (let i = 0; i < 8; i++) {
+            spawnParticle({
+              x: originX,
+              y: originY,
+              vx: 0,
+              vy: 0,
+              gravity: 0,
+              life: 1.15,
+              size: 6.5,
+              color: i % 2 === 0 ? '#FFE082' : '#CE93D8',
+              shape: 'star',
+              orbitRadius: 22 + (i % 2) * 7,
+              orbitAngle: (Math.PI * 2 * i) / 8,
+              orbitSpeed: 7.5
+            });
+          }
+          break;
+        }
+
+        case 'volcan': {
+          // ¡Qué rajado!: temblor en la base + nube de humo ascendente + brasas brillantes
+          iconWrapEl.animate(
+            [
+              { transform: 'scale(1) translate(0, 0)' },
+              { transform: 'scale(1.35) translate(-2.5px, 1px)', offset: 0.12 },
+              { transform: 'scale(1.38) translate(2.5px, -1px)', offset: 0.24 },
+              { transform: 'scale(1.4) translate(-2px, 0px)', offset: 0.36 },
+              { transform: 'scale(1.35) translate(2px, 1px)', offset: 0.5 },
+              { transform: 'scale(1.2) translate(-1px, 0px)', offset: 0.72 },
+              { transform: 'scale(1) translate(0, 0)', offset: 1 }
+            ],
+            { duration, easing: 'ease-out', playbackRate: speed }
+          );
+
+          // Humo blanco ascendente
+          for (let i = 0; i < 4; i++) {
+            spawnParticle({
+              x: originX + (Math.random() - 0.5) * 8,
+              y: originY - 8,
+              vx: (Math.random() - 0.5) * 14,
+              vy: -34 - i * 8,
+              gravity: -6,
+              life: 1.15,
+              size: 11 + i * 2.5,
+              color: '#ECEFF1',
+              shape: 'smoke'
+            });
+          }
+
+          // Chispas/brasas incandescentes flotando hacia arriba
+          for (let i = 0; i < 9; i++) {
+            spawnParticle({
+              x: originX + (Math.random() - 0.5) * 10,
+              y: originY - 6,
+              vx: (Math.random() - 0.5) * 42,
+              vy: -52 - Math.random() * 35,
+              gravity: 22,
+              life: 1.1,
+              size: 4 + Math.random() * 2.5,
+              color: i % 2 === 0 ? '#FF9100' : '#FFEA00',
+              shape: 'ember'
+            });
+          }
+          break;
+        }
+
+        case 'sloth': {
+          // ¡Qué chiva!: inclinación relajada de cabeza + destello diagonal sobre los lentes
+          iconWrapEl.animate(
+            [
+              { transform: 'scale(1) rotate(0deg) translateY(0)' },
+              { transform: 'scale(1.38) rotate(-10deg) translateY(-3px)', offset: 0.28 },
+              { transform: 'scale(1.4) rotate(7deg) translateY(-4px)', offset: 0.65 },
+              { transform: 'scale(1) rotate(0deg) translateY(0)', offset: 1 }
+            ],
+            { duration, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)', playbackRate: speed }
+          );
+
+          const glints = iconWrapEl.querySelectorAll('.sloth-glint');
+          glints.forEach((g) => {
+            g.animate(
+              [
+                { transform: 'translateX(-14px)', opacity: 0 },
+                { transform: 'translateX(0px)', opacity: 0.9, offset: 0.45 },
+                { transform: 'translateX(16px)', opacity: 0, offset: 0.9 }
+              ],
+              { duration: 950, delay: 120, easing: 'ease-in-out', playbackRate: speed }
+            );
+          });
+
+          // Destello sutil en esquina de gafas
+          spawnParticle({
+            x: originX + 7,
+            y: originY - 4,
+            vx: 8,
+            vy: -10,
+            gravity: 0,
+            life: 0.95,
+            size: 10,
+            color: '#FFFFFF',
+            shape: 'star'
+          });
+          break;
+        }
+
+        case 'pin': {
+          // ¡De una!: rebote de caída vertical (pin-drop) + dos ondas de radar concéntricas
+          iconWrapEl.animate(
+            [
+              { transform: 'translateY(-16px) scale(1.25, 1.25)' },
+              { transform: 'translateY(2px) scale(1.38, 0.86)', offset: 0.24 },
+              { transform: 'translateY(-7px) scale(1.18, 1.26)', offset: 0.48 },
+              { transform: 'translateY(1px) scale(1.14, 0.94)', offset: 0.68 },
+              { transform: 'translateY(0) scale(1, 1)', offset: 1 }
+            ],
+            { duration, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', playbackRate: speed }
+          );
+
+          // Dos anillos de radar concéntricos
+          [0, 0.22].forEach((delaySec) => {
+            spawnParticle({
+              x: originX,
+              y: originY + 5,
+              vx: 0,
+              vy: 0,
+              gravity: 0,
+              life: 1.05,
+              delay: delaySec,
+              size: 12,
+              maxRadius: 38,
+              color: '#FF5252',
+              shape: 'ring'
+            });
+          });
+          break;
+        }
+
+        case 'cloud': {
+          // ¡Qué agüevado!: caída pesada y triste hacia abajo + 3 gotas de lluvia animadas
+          iconWrapEl.animate(
+            [
+              { transform: 'translateY(0) scale(1, 1)' },
+              { transform: 'translateY(4px) scale(1.24, 0.92)', offset: 0.3 },
+              { transform: 'translateY(5px) scale(1.22, 0.94)', offset: 0.68 },
+              { transform: 'translateY(0) scale(1, 1)', offset: 1 }
+            ],
+            { duration, easing: 'ease-in-out', playbackRate: speed }
+          );
+
+          // 3 gotas de lluvia cayendo secuencialmente
+          [-6, 0, 6].forEach((offsetX, idx) => {
+            spawnParticle({
+              x: originX + offsetX,
+              y: originY + 6,
+              vx: 0,
+              vy: 36,
+              gravity: 48,
+              life: 0.95,
+              delay: idx * 0.14,
+              size: 5.5,
+              color: '#38BDF8',
+              shape: 'raindrop'
+            });
+          });
+          break;
+        }
+
+        case 'angry': {
+          // ¡Qué chicha!: hinchazón roja furiosa + sacudida rápida + 2 chorros diagonales de vapor blanco
+          iconWrapEl.animate(
+            [
+              { transform: 'scale(1) translateX(0)', filter: 'brightness(1)' },
+              { transform: 'scale(1.42) translateX(-3px)', filter: 'brightness(1.2)', offset: 0.14 },
+              { transform: 'scale(1.45) translateX(3.5px)', filter: 'brightness(1.25)', offset: 0.26 },
+              { transform: 'scale(1.44) translateX(-3px)', filter: 'brightness(1.2)', offset: 0.38 },
+              { transform: 'scale(1.42) translateX(3px)', filter: 'brightness(1.2)', offset: 0.5 },
+              { transform: 'scale(1.3) translateX(-2px)', filter: 'brightness(1.1)', offset: 0.68 },
+              { transform: 'scale(1) translateX(0)', filter: 'brightness(1)', offset: 1 }
+            ],
+            { duration, easing: 'ease-in-out', playbackRate: speed }
+          );
+
+          // Dos chorros diagonales de vapor blanco saliendo de ambos lados (orejas)
+          [-1, 1].forEach((dir) => {
+            for (let j = 0; j < 3; j++) {
+              spawnParticle({
+                x: originX + dir * 10,
+                y: originY - 4,
+                vx: dir * (44 + j * 14),
+                vy: -32 - j * 10,
+                gravity: -8,
+                life: 1.0,
+                delay: j * 0.1,
+                size: 9 + j * 2,
+                color: '#FFFFFF',
+                shape: 'smoke'
+              });
+            }
+          });
+          break;
+        }
+      }
+    }
+
+    // 9. Sistema de Partículas Físicas (sincronizado con playbackSpeed)
+    function spawnParticle(cfg) {
+      const el = document.createElement('div');
+      el.style.position = 'absolute';
+      el.style.left = '0';
+      el.style.top = '0';
+      el.style.pointerEvents = 'none';
+      el.style.willChange = 'transform, opacity';
+
+      if (cfg.shape === 'star') {
+        el.innerHTML = `<svg width="${cfg.size}" height="${cfg.size}" viewBox="0 0 24 24" fill="${cfg.color}"><path d="M12 1L14.8 9.2L23 12L14.8 14.8L12 23L9.2 14.8L1 12L9.2 9.2L12 1Z"/></svg>`;
+      } else if (cfg.shape === 'smoke') {
+        el.style.width = `${cfg.size}px`;
+        el.style.height = `${cfg.size}px`;
+        el.style.borderRadius = '999px';
+        el.style.background = `radial-gradient(circle, ${cfg.color} 0%, rgba(255,255,255,0) 75%)`;
+      } else if (cfg.shape === 'ember') {
+        el.style.width = `${cfg.size}px`;
+        el.style.height = `${cfg.size}px`;
+        el.style.borderRadius = '999px';
+        el.style.backgroundColor = cfg.color;
+        el.style.boxShadow = `0 0 8px ${cfg.color}`;
+      } else if (cfg.shape === 'ring') {
+        el.style.width = '24px';
+        el.style.height = '24px';
+        el.style.marginLeft = '-12px';
+        el.style.marginTop = '-12px';
+        el.style.borderRadius = '999px';
+        el.style.border = `2px solid ${cfg.color}`;
+      } else if (cfg.shape === 'raindrop') {
+        el.innerHTML = `<svg width="${cfg.size}" height="${cfg.size * 1.4}" viewBox="0 0 12 16" fill="${cfg.color}"><path d="M6 0C6 0 0 7.5 0 10.5A6 6 0 0 0 12 10.5C12 7.5 6 0 6 0Z"/></svg>`;
+      }
+
+      if ((cfg.delay || 0) > 0) {
+        el.style.opacity = '0';
+      }
+
+      fxLayer.appendChild(el);
+      state.particles.push({
+        el,
+        age: -(cfg.delay || 0),
+        life: cfg.life || 1.0,
+        x: cfg.x,
+        y: cfg.y,
+        vx: cfg.vx || 0,
+        vy: cfg.vy || 0,
+        gravity: cfg.gravity || 0,
+        size: cfg.size || 8,
+        maxRadius: cfg.maxRadius || 36,
+        shape: cfg.shape,
+        orbitRadius: cfg.orbitRadius || 0,
+        orbitAngle: cfg.orbitAngle || 0,
+        orbitSpeed: cfg.orbitSpeed || 0
+      });
+    }
+
+    // 10. Bucle Principal de Animación (60fps+ con soporte de Cámara Lenta 0.4x)
+    let lastFrameTime = performance.now();
+
+    function animationLoop(now) {
+      const rawDt = Math.min(0.05, (now - lastFrameTime) / 1000);
+      lastFrameTime = now;
+      const dt = rawDt * state.playbackSpeed;
+
+      // A. Interpolación de entrada del dock
+      const dockLerp = 1 - Math.exp(-16 * dt);
+      state.dock.scale += (1 - state.dock.scale) * dockLerp;
+      state.dock.opacity += (1 - state.dock.opacity) * dockLerp;
+      state.dock.y += (0 - state.dock.y) * dockLerp;
+
+      reactionDock.style.transform = `translate3d(0, ${state.dock.y.toFixed(2)}px, 0) scale(${state.dock.scale.toFixed(4)})`;
+      reactionDock.style.opacity = state.dock.opacity.toFixed(3);
+
+      // B. Física de resorte en cascada + scrubbing magnético de los 7 íconos
+      const slotLerp = 1 - Math.exp(-22 * dt);
+
+      state.slots.forEach((s, idx) => {
+        if (!s.cascadeDone) {
+          s.cascadeElapsed += dt;
+          if (s.cascadeElapsed >= s.cascadeDelay) {
+            const localT = (s.cascadeElapsed - s.cascadeDelay) / 0.34;
+            if (localT >= 1) {
+              s.cascadeDone = true;
+              s.scale = s.targetScale;
+              s.y = s.targetY;
+            } else {
+              // Curva de resorte con ligero rebote (overshoot 1.12x)
+              const spring = 1 - Math.exp(-8.5 * localT) * Math.cos(6.8 * localT);
+              s.scale = Math.max(0.01, spring);
+              s.y = 18 * (1 - spring);
+            }
+          }
+        } else {
+          s.scale += (s.targetScale - s.scale) * slotLerp;
+          s.y += (s.targetY - s.y) * slotLerp;
+          s.x += (s.targetX - s.x) * slotLerp;
+        }
+
+        slotElements[idx].style.transform = `translate3d(${s.x.toFixed(2)}px, ${s.y.toFixed(2)}px, 0) scale(${s.scale.toFixed(4)})`;
+      });
+
+      // C. Etiqueta flotante con inclinación proporcional a la velocidad
+      const labelLerp = 1 - Math.exp(-24 * dt);
+      state.label.x += (state.label.targetX - state.label.x) * labelLerp;
+      const targetTilt = Math.max(-8, Math.min(8, state.pointerVelocity * 0.35));
+      state.label.tilt += (targetTilt - state.label.tilt) * labelLerp;
+      state.pointerVelocity *= Math.pow(0.82, dt * 60);
+
+      const curOpacity = parseFloat(floatingLabel.style.opacity || '0');
+      const nextOpacity = curOpacity + (state.label.opacity - curOpacity) * labelLerp;
+      floatingLabel.style.opacity = nextOpacity.toFixed(3);
+      floatingLabel.style.transform = `translate3d(${(state.label.x - floatingLabel.offsetWidth / 2).toFixed(2)}px, 0, 0) rotate(${state.label.tilt.toFixed(2)}deg)`;
+
+      // D. Actualización de partículas físicas
+      for (let i = state.particles.length - 1; i >= 0; i--) {
+        const p = state.particles[i];
+        p.age += dt;
+
+        if (p.age < 0) continue;
+
+        if (p.age >= p.life) {
+          p.el.remove();
+          state.particles.splice(i, 1);
+          continue;
+        }
+
+        const progress = p.age / p.life;
+
+        if (p.orbitRadius > 0) {
+          p.orbitAngle += p.orbitSpeed * dt;
+          const r = p.orbitRadius * (0.4 + 0.7 * Math.sin(progress * Math.PI));
+          const px = p.x + Math.cos(p.orbitAngle) * r - p.size / 2;
+          const py = p.y + Math.sin(p.orbitAngle) * r - p.size / 2;
+          const alpha = Math.sin(progress * Math.PI);
+          p.el.style.opacity = alpha.toFixed(3);
+          p.el.style.transform = `translate3d(${px.toFixed(1)}px, ${py.toFixed(1)}px, 0) scale(${(0.7 + 0.5 * alpha).toFixed(2)})`;
+        } else if (p.shape === 'ring') {
+          const scale = 0.5 + (p.maxRadius / 12) * progress;
+          const alpha = (1 - progress) * 0.85;
+          p.el.style.opacity = alpha.toFixed(3);
+          p.el.style.transform = `translate3d(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px, 0) scale(${scale.toFixed(3)})`;
+        } else {
+          p.vy += p.gravity * dt;
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+
+          const alpha = progress < 0.2 ? progress / 0.2 : 1 - (progress - 0.2) / 0.8;
+          const scale = p.shape === 'smoke' ? 0.6 + progress * 0.9 : 1 - progress * 0.35;
+          p.el.style.opacity = Math.max(0, alpha).toFixed(3);
+          p.el.style.transform = `translate3d(${(p.x - p.size / 2).toFixed(1)}px, ${(p.y - p.size / 2).toFixed(1)}px, 0) scale(${scale.toFixed(3)})`;
+        }
+      }
+
+      requestAnimationFrame(animationLoop);
+    }
+
+    // 11. Posicionar la barra de reacciones junto al mensaje seleccionado
+    function focusMessage(msgId, triggerCascade = true) {
+      state.targetMessageId = msgId;
+
+      // Resaltar visualmente la burbuja enfocada
+      document.querySelectorAll('.msg-bubble').forEach(el => {
+        el.classList.remove('msg-target-ring');
+      });
+      const activeMsgEl = document.getElementById(msgId);
+      if (activeMsgEl) {
+        activeMsgEl.classList.add('msg-target-ring');
+      }
+
+      if (msgId === 'msg-1') {
+        // Posición original entre Mensaje 1 y Mensaje 2
+        dockSlotBetween.style.height = '66px';
+        reactionDockWrapper.style.top = '132px';
+      } else {
+        // Posicionar dinámicamente justo encima del mensaje enfocado
+        dockSlotBetween.style.height = '12px';
+        const containerRect = chatContainer.getBoundingClientRect();
+        const msgRect = activeMsgEl.getBoundingClientRect();
+        const relativeTop = (msgRect.top - containerRect.top) + chatContainer.scrollTop - 64;
+        reactionDockWrapper.style.top = `${Math.max(12, relativeTop)}px`;
+      }
+
+      if (triggerCascade) {
+        triggerSpringCascade();
+      }
+    }
+
+    // 12. Listeners de mensajes, botones de estudio y envío de chat
+    function setupUIControls() {
+      // Clic en mensajes existentes para enfocar la barra de reacciones
+      document.getElementById('msg-1').addEventListener('click', () => focusMessage('msg-1', true));
+      document.getElementById('msg-2').addEventListener('click', () => focusMessage('msg-2', true));
+
+      // Clic en badges existentes repite su micro-animación
+      document.getElementById('badge-msg-1').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const emo = e.currentTarget.dataset.emotion || 'cloud';
+        playSignatureMicroAnimation(emo, e.currentTarget, document.getElementById('badge-icon-msg-1'));
+      });
+
+      document.getElementById('badge-msg-2').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const emo = e.currentTarget.dataset.emotion;
+        if (emo) {
+          playSignatureMicroAnimation(emo, e.currentTarget, document.getElementById('badge-icon-msg-2'));
+        }
+      });
+
+      // Botón de pista inferior
+      document.getElementById('hintSummonBtn').addEventListener('click', () => {
+        triggerSpringCascade();
+      });
+
+      // Controles de estudio inferiores
+      document.getElementById('replayCascadeBtn').addEventListener('click', () => {
+        triggerSpringCascade();
+      });
+
+      document.getElementById('replayBadgeBtn').addEventListener('click', () => {
+        const badgeEl = document.getElementById(`badge-${state.targetMessageId}`);
+        const iconWrap = document.getElementById(`badge-icon-${state.targetMessageId}`);
+        const emoId = badgeEl.dataset.emotion || state.lastSelectedEmotionId;
+        const emotionObj = EMOTIONS.find(e => e.id === emoId) || EMOTIONS[5];
+
+        const anchorEl = document.getElementById(`badge-anchor-${state.targetMessageId}`);
+        if (anchorEl.classList.contains('hidden')) {
+          anchorEl.classList.remove('hidden');
+          badgeEl.dataset.emotion = emotionObj.id;
+          badgeEl.dataset.count = '1';
+          iconWrap.innerHTML = emotionObj.svg;
+          badgeEl.querySelector('.badge-label').textContent = emotionObj.label;
+          document.getElementById(`badge-count-${state.targetMessageId}`).textContent = '1';
+        }
+        playSignatureMicroAnimation(emotionObj.id, badgeEl, iconWrap);
+      });
+
+      // Selector de velocidad (1.0x Normal vs 0.4x Cámara Lenta)
+      const speedBtns = document.querySelectorAll('.speed-btn');
+      speedBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.playbackSpeed = parseFloat(btn.dataset.speed);
+          speedBtns.forEach(b => {
+            b.classList.remove('bg-white', 'text-slate-900', 'shadow-xs');
+            b.classList.add('text-slate-600');
+          });
+          btn.classList.add('bg-white', 'text-slate-900', 'shadow-xs');
+          btn.classList.remove('text-slate-600');
+        });
+      });
+
+      // Enviar nuevos mensajes en el chat
+      let customMsgCounter = 2;
+      chatInputForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const text = messageInput.value.trim();
+        if (!text) return;
+
+        customMsgCounter += 1;
+        const newId = `msg-${customMsgCounter}`;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex flex-col items-end relative group';
+        wrapper.innerHTML = `
+          <div id="${newId}" data-msg-id="${newId}" class="msg-bubble msg-bubble-outgoing max-w-[82%] px-4 pt-3 pb-2.5 cursor-pointer relative">
+            <p class="text-white text-[15px] leading-[1.38] font-normal pr-2"></p>
+            <div class="flex justify-end mt-1">
+              <span class="text-purple-200/70 text-[11px] font-medium">5:24 p. m.</span>
+            </div>
+          </div>
+          <div id="badge-anchor-${newId}" class="self-end mr-4 -mt-1.5 z-10 relative hidden">
+            <button type="button" id="badge-${newId}" class="reaction-badge" data-emotion="" data-count="0">
+              <span class="badge-icon-wrap w-6 h-6 flex items-center justify-center relative" id="badge-icon-${newId}"></span>
+              <span class="badge-label text-[#E2E8F0] text-[12.5px] font-medium"></span>
+              <span class="badge-count-pill" id="badge-count-${newId}">1</span>
+            </button>
+          </div>
+        `;
+        wrapper.querySelector('p').textContent = text;
+        extraMessages.appendChild(wrapper);
+
+        document.getElementById(newId).addEventListener('click', () => focusMessage(newId, true));
+        document.getElementById(`badge-${newId}`).addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const emo = ev.currentTarget.dataset.emotion;
+          if (emo) playSignatureMicroAnimation(emo, ev.currentTarget, document.getElementById(`badge-icon-${newId}`));
+        });
+
+        messageInput.value = '';
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        setTimeout(() => focusMessage(newId, true), 60);
+      });
+    }
+
+    // Arranque
+    window.addEventListener('DOMContentLoaded', () => {
+      initReactionDock();
+      setupDockInteractions();
+      setupUIControls();
+      triggerSpringCascade();
+      requestAnimationFrame(animationLoop);
+    });
+  </script>
+</body>
+</html>

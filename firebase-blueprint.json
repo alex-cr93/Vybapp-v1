@@ -1,0 +1,459 @@
+{
+  "entities": {
+    "PublicUser": {
+      "title": "PublicUser",
+      "description": "Public social profile without PII",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "username": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "quickStatus": { "type": "string" },
+        "locationLabel": { "type": "string" },
+        "bio": { "type": "string" },
+        "sinpeBank": { "type": "string" },
+        "sinpeVisibility": { "type": "string", "enum": ["contacts_only", "everyone", "hidden"] },
+        "verified": { "type": "boolean" },
+        "postsCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "displayName", "username", "quickStatus", "verified", "postsCount", "createdAt", "updatedAt"]
+    },
+    "PrivateUser": {
+      "title": "PrivateUser",
+      "description": "Private PII and user privacy settings",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "sinpeBank": { "type": "string" },
+        "sinpeVisibility": { "type": "string", "enum": ["contacts_only", "everyone", "hidden"] },
+        "blockedUids": { "type": "array" },
+        "blockedPhones": { "type": "array" },
+        "liveLocationScope": { "type": "string", "enum": ["all_chats", "contacts_only", "ask_each_time", "nobody"] },
+        "liveLocationDurationMin": { "type": "integer" },
+        "liveLocationShowDistance": { "type": "boolean" },
+        "readReceipts": { "type": "boolean" },
+        "showOnlineStatus": { "type": "boolean" },
+        "soundEnabled": { "type": "boolean" },
+        "callAlertsEnabled": { "type": "boolean" },
+        "sinpeAlertsEnabled": { "type": "boolean" },
+        "fcmToken": { "type": "string" },
+        "hasPasswordAuth": { "type": "boolean" },
+        "authEmail": { "type": "string" },
+        "buzzDailyDate": { "type": "string" },
+        "buzzDailyCount": { "type": "integer" },
+        "savedPostIds": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "readReceipts", "showOnlineStatus", "soundEnabled", "callAlertsEnabled", "sinpeAlertsEnabled", "createdAt", "updatedAt"]
+    },
+    "SinpeProfile": {
+      "title": "SinpeProfile",
+      "description": "Access-controlled SINPE Móvil bank and phone profile",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "visibility": { "type": "string", "enum": ["contacts_only", "everyone", "hidden"] },
+        "sinpeBank": { "type": "string" },
+        "sinpePhone": { "type": "string" },
+        "approvedUids": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "visibility", "approvedUids", "createdAt", "updatedAt"]
+    },
+    "AuthAlias": {
+      "title": "AuthAlias",
+      "description": "SHA-256 hashed identifier lookup (username/phone/email -> authEmail) without exposing PII",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "authEmail": { "type": "string" },
+        "entryType": { "type": "string", "enum": ["username", "phone", "email"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "authEmail", "entryType", "createdAt", "updatedAt"]
+    },
+    "DirectoryEntry": {
+      "title": "DirectoryEntry",
+      "description": "Exact-match lookup entry by @username or +506 phone",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "username": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "sinpeBank": { "type": "string" },
+        "sinpeVisibility": { "type": "string", "enum": ["contacts_only", "everyone", "hidden"] },
+        "phone": { "type": "string" },
+        "entryType": { "type": "string", "enum": ["username", "phone"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "username", "entryType", "createdAt", "updatedAt"]
+    },
+    "SavedContact": {
+      "title": "SavedContact",
+      "description": "User-owned saved contact",
+      "type": "object",
+      "properties": {
+        "contactUid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "username": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "sinpeBank": { "type": "string" },
+        "sinpePhone": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["contactUid", "displayName", "username", "createdAt", "updatedAt"]
+    },
+    "Story": {
+      "title": "Story",
+      "description": "24-hour social story",
+      "type": "object",
+      "properties": {
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorUsername": { "type": "string" },
+        "authorAvatarUrl": { "type": "string" },
+        "authorVerified": { "type": "boolean" },
+        "mediaType": { "type": "string", "enum": ["image", "video"] },
+        "mediaId": { "type": "string" },
+        "mediaPreviewData": { "type": "string" },
+        "caption": { "type": "string" },
+        "locationLabel": { "type": "string" },
+        "viewerUids": { "type": "array" },
+        "active": { "type": "boolean" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["authorId", "authorName", "authorUsername", "authorVerified", "mediaType", "viewerUids", "active", "expiresAt", "createdAt"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Social feed post",
+      "type": "object",
+      "properties": {
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorUsername": { "type": "string" },
+        "authorAvatarUrl": { "type": "string" },
+        "authorVerified": { "type": "boolean" },
+        "text": { "type": "string" },
+        "hashtags": { "type": "array" },
+        "mediaType": { "type": "string", "enum": ["none", "image", "video"] },
+        "mediaId": { "type": "string" },
+        "mediaPreviewData": { "type": "string" },
+        "mediaAspectRatio": { "type": "number" },
+        "likedBy": { "type": "array" },
+        "commentsCount": { "type": "integer" },
+        "shareCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["authorId", "authorName", "authorUsername", "authorVerified", "text", "hashtags", "mediaType", "likedBy", "commentsCount", "shareCount", "createdAt", "updatedAt"]
+    },
+    "PostComment": {
+      "title": "PostComment",
+      "description": "Comment on a social post",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorUsername": { "type": "string" },
+        "authorAvatarUrl": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "authorId", "authorName", "authorUsername", "text", "createdAt"]
+    },
+    "Chat": {
+      "title": "Chat",
+      "description": "Direct or group conversation",
+      "type": "object",
+      "properties": {
+        "participantUids": { "type": "array" },
+        "participantNames": { "type": "object" },
+        "participantAvatars": { "type": "object" },
+        "chatType": { "type": "string", "enum": ["direct", "group"] },
+        "title": { "type": "string" },
+        "lastMessageText": { "type": "string" },
+        "lastMessageSenderId": { "type": "string" },
+        "unreadCounts": { "type": "object" },
+        "lastReadAt": { "type": "object" },
+        "buzzCounts": { "type": "object" },
+        "hiddenForUids": { "type": "array" },
+        "clearedBeforeAt": { "type": "object" },
+        "liveLocationUids": { "type": "array" },
+        "createdBy": { "type": "string" },
+        "lastMessageAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["participantUids", "participantNames", "chatType", "lastMessageText", "unreadCounts", "createdBy", "lastMessageAt", "createdAt", "updatedAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Realtime chat message, SINPE card, media, or AI summary",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string" },
+        "participantUids": { "type": "array" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "messageType": { "type": "string", "enum": ["text", "media", "sinpe", "ai_summary", "buzz", "document", "location", "contact", "poll"] },
+        "text": { "type": "string" },
+        "mediaId": { "type": "string" },
+        "mediaType": { "type": "string", "enum": ["image", "video", "audio"] },
+        "mediaPreviewData": { "type": "string" },
+        "mediaAspectRatio": { "type": "number" },
+        "audioDurationSec": { "type": "integer" },
+        "documentName": { "type": "string" },
+        "documentMimeType": { "type": "string" },
+        "documentSizeBytes": { "type": "integer" },
+        "locationLat": { "type": "number" },
+        "locationLng": { "type": "number" },
+        "locationLabel": { "type": "string" },
+        "sharedContactUid": { "type": "string" },
+        "sharedContactName": { "type": "string" },
+        "sharedContactUsername": { "type": "string" },
+        "sharedContactAvatarUrl": { "type": "string" },
+        "pollQuestion": { "type": "string" },
+        "pollOptions": { "type": "array" },
+        "pollVotes": { "type": "object" },
+        "sinpeAmount": { "type": "integer" },
+        "sinpePerPerson": { "type": "integer" },
+        "sinpeReason": { "type": "string" },
+        "sinpeRecipientUid": { "type": "string" },
+        "sinpeRecipientName": { "type": "string" },
+        "sinpeRecipientPhone": { "type": "string" },
+        "sinpeRecipientBank": { "type": "string" },
+        "sinpeSplitCount": { "type": "integer" },
+        "sinpeStatus": { "type": "string", "enum": ["pending", "completed"] },
+        "sinpePaidByUids": { "type": "array" },
+        "aiSummaryTopic": { "type": "string" },
+        "aiSummaryMain": { "type": "string" },
+        "aiSummaryDecisions": { "type": "array" },
+        "aiSummaryTasks": { "type": "array" },
+        "editedAt": { "type": "string", "format": "date-time" },
+        "deletedForEveryone": { "type": "boolean" },
+        "bombDurationSec": { "type": "integer" },
+        "bombTriggeredAt": { "type": "string", "format": "date-time" },
+        "reactions": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["chatId", "participantUids", "senderId", "senderName", "messageType", "text", "createdAt", "updatedAt"]
+    },
+    "LiveLocationShare": {
+      "title": "LiveLocationShare",
+      "description": "Real-time location sharing session per user within a chat or group (max 15 active per group)",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "chatId": { "type": "string" },
+        "participantUids": { "type": "array" },
+        "displayName": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "accuracyMeters": { "type": "number" },
+        "active": { "type": "boolean" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "chatId", "participantUids", "displayName", "latitude", "longitude", "active", "expiresAt", "updatedAt"]
+    },
+    "MediaMeta": {
+      "title": "MediaMeta",
+      "description": "Chunked media file metadata",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string" },
+        "mimeType": { "type": "string" },
+        "totalChunks": { "type": "integer" },
+        "totalBytes": { "type": "integer" },
+        "scope": { "type": "string", "enum": ["public", "chat"] },
+        "allowedUids": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "mimeType", "totalChunks", "totalBytes", "scope", "allowedUids", "createdAt"]
+    },
+    "MediaChunk": {
+      "title": "MediaChunk",
+      "description": "Chunked media binary payload",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string" },
+        "scope": { "type": "string", "enum": ["public", "chat"] },
+        "allowedUids": { "type": "array" },
+        "chunkIndex": { "type": "integer" },
+        "dataBase64": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "scope", "allowedUids", "chunkIndex", "dataBase64", "createdAt"]
+    },
+    "CallSession": {
+      "title": "CallSession",
+      "description": "WebRTC signaling & call history record",
+      "type": "object",
+      "properties": {
+        "callerId": { "type": "string" },
+        "callerName": { "type": "string" },
+        "callerAvatar": { "type": "string" },
+        "calleeId": { "type": "string" },
+        "calleeName": { "type": "string" },
+        "calleeAvatar": { "type": "string" },
+        "participantUids": { "type": "array" },
+        "callType": { "type": "string", "enum": ["audio", "video"] },
+        "status": { "type": "string", "enum": ["ringing", "active", "ended", "rejected", "missed"] },
+        "offerSdp": { "type": "string" },
+        "answerSdp": { "type": "string" },
+        "durationSeconds": { "type": "integer" },
+        "groupCall": { "type": "boolean" },
+        "chatId": { "type": "string" },
+        "groupTitle": { "type": "string" },
+        "activeParticipantUids": { "type": "array" },
+        "declinedUids": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["callerId", "callerName", "calleeId", "calleeName", "participantUids", "callType", "status", "durationSeconds", "createdAt", "updatedAt"]
+    },
+    "CallSignal": {
+      "title": "CallSignal",
+      "description": "Pairwise WebRTC SDP offer/answer signal inside a group call mesh",
+      "type": "object",
+      "properties": {
+        "participantUids": { "type": "array" },
+        "fromUid": { "type": "string" },
+        "toUid": { "type": "string" },
+        "type": { "type": "string", "enum": ["offer", "answer"] },
+        "sdp": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["participantUids", "fromUid", "toUid", "type", "sdp", "createdAt", "updatedAt"]
+    },
+    "IceCandidate": {
+      "title": "IceCandidate",
+      "description": "WebRTC ICE candidate",
+      "type": "object",
+      "properties": {
+        "participantUids": { "type": "array" },
+        "senderId": { "type": "string" },
+        "targetUid": { "type": "string" },
+        "sdpMid": { "type": "string" },
+        "sdpMLineIndex": { "type": "integer" },
+        "sdpCandidate": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["participantUids", "senderId", "sdpMid", "sdpMLineIndex", "sdpCandidate", "createdAt"]
+    },
+    "ChatRequest": {
+      "title": "ChatRequest",
+      "description": "Direct chat invitation request with accept, reject, and delete support",
+      "type": "object",
+      "properties": {
+        "fromUid": { "type": "string" },
+        "fromName": { "type": "string" },
+        "fromUsername": { "type": "string" },
+        "fromAvatarUrl": { "type": "string" },
+        "fromSinpeBank": { "type": "string" },
+        "toUid": { "type": "string" },
+        "toName": { "type": "string" },
+        "toUsername": { "type": "string" },
+        "toAvatarUrl": { "type": "string" },
+        "participantUids": { "type": "array" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected"] },
+        "note": { "type": "string" },
+        "chatId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fromUid", "fromName", "fromUsername", "toUid", "toName", "toUsername", "participantUids", "status", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users_public/{userId}": {
+      "schema": { "$ref": "#/entities/PublicUser" },
+      "description": "Public social profile per user"
+    },
+    "/users_private/{userId}": {
+      "schema": { "$ref": "#/entities/PrivateUser" },
+      "description": "Private PII and user privacy/alert settings"
+    },
+    "/sinpe_profiles/{userId}": {
+      "schema": { "$ref": "#/entities/SinpeProfile" },
+      "description": "Access-controlled SINPE Móvil bank and phone visibility profile"
+    },
+    "/directory_lookup/{lookupKey}": {
+      "schema": { "$ref": "#/entities/DirectoryEntry" },
+      "description": "Exact-match index by user_<username> or phone_<8digits>"
+    },
+    "/auth_aliases/{aliasHash}": {
+      "schema": { "$ref": "#/entities/AuthAlias" },
+      "description": "SHA-256 hashed cross-device login alias resolving username/phone/email to Firebase authEmail"
+    },
+    "/users/{userId}/contacts/{contactUid}": {
+      "schema": { "$ref": "#/entities/SavedContact" },
+      "description": "User saved contacts"
+    },
+    "/stories/{storyId}": {
+      "schema": { "$ref": "#/entities/Story" },
+      "description": "24-hour stories visible strictly to author and users who added author as a contact"
+    },
+    "/posts/{postId}": {
+      "schema": { "$ref": "#/entities/Post" },
+      "description": "Social feed posts visible strictly to author and users who added author as a contact"
+    },
+    "/posts/{postId}/comments/{commentId}": {
+      "schema": { "$ref": "#/entities/PostComment" },
+      "description": "Live post comments restricted to author and contacts who added the post author"
+    },
+    "/chats/{chatId}": {
+      "schema": { "$ref": "#/entities/Chat" },
+      "description": "Direct and group chats"
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Chat messages including SINPE cards and AI summaries"
+    },
+    "/chats/{chatId}/live_locations/{userId}": {
+      "schema": { "$ref": "#/entities/LiveLocationShare" },
+      "description": "Active real-time location sharing coordinates per participant (max 15 per group)"
+    },
+    "/chat_requests/{requestId}": {
+      "schema": { "$ref": "#/entities/ChatRequest" },
+      "description": "Real-time direct chat requests supporting accept, reject, and delete"
+    },
+    "/vybmedia_files/{mediaId}": {
+      "schema": { "$ref": "#/entities/MediaMeta" },
+      "description": "Media metadata for chunked sharing"
+    },
+    "/vybmedia_files/{mediaId}/chunks/{chunkIndex}": {
+      "schema": { "$ref": "#/entities/MediaChunk" },
+      "description": "Media chunks"
+    },
+    "/calls/{callId}": {
+      "schema": { "$ref": "#/entities/CallSession" },
+      "description": "WebRTC signaling sessions and call history"
+    },
+    "/calls/{callId}/signals/{signalId}": {
+      "schema": { "$ref": "#/entities/CallSignal" },
+      "description": "Pairwise WebRTC SDP signals for multi-party calls"
+    },
+    "/calls/{callId}/iceCandidates/{candidateId}": {
+      "schema": { "$ref": "#/entities/IceCandidate" },
+      "description": "WebRTC ICE candidates"
+    }
+  }
+}
