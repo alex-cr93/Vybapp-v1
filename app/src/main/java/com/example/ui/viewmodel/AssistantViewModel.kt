@@ -200,13 +200,10 @@ class AssistantViewModel(
     }
 
     fun summarizeMessages(modelChoice: AiModelChoice, messages: List<ChatMessage>) {
-        val readable = messages.filter { it.deletedForEveryone != true && it.text.isNotBlank() }
-        if (readable.isEmpty()) {
+        val transcript = buildSanitizedTranscript(messages)
+        if (transcript.isBlank()) {
             _uiState.update { it.copy(errorMessage = "No hay mensajes suficientes en este chat para resumir.") }
             return
-        }
-        val transcript = readable.takeLast(60).joinToString("\n") { msg ->
-            "${msg.senderName}: ${msg.text}"
         }
         viewModelScope.launch {
             _uiState.update { it.copy(isToolLoading = true, summaryResult = null, errorMessage = null) }
@@ -221,6 +218,34 @@ class AssistantViewModel(
                     )
                 }
             }
+        }
+    }
+
+    companion object {
+        fun sanitizeLine(raw: String, maxLen: Int): String {
+            val cleaned = buildString(raw.length) {
+                for (ch in raw) {
+                    when {
+                        ch == '\n' || ch == '\r' || ch == '\t' -> append(' ')
+                        ch.code < 0x20 || ch.code == 0x7F -> Unit
+                        else -> append(ch)
+                    }
+                }
+            }
+            return cleaned.replace(Regex("\\s+"), " ").trim().take(maxLen)
+        }
+
+        fun buildSanitizedTranscript(messages: List<ChatMessage>): String {
+            return messages
+                .filter { it.deletedForEveryone != true && it.text.isNotBlank() }
+                .takeLast(60)
+                .mapNotNull { msg ->
+                    val sender = sanitizeLine(msg.senderName, 50).ifBlank { "Usuario" }
+                    val text = sanitizeLine(msg.text, 500)
+                    if (text.isBlank()) null else "$sender: $text"
+                }
+                .joinToString("\n")
+                .take(8000)
         }
     }
 

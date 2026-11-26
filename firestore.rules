@@ -710,11 +710,11 @@ service cloud.firestore {
                        incoming().keys().hasAll(['userId', 'chatId', 'participantUids', 'displayName', 'latitude', 'longitude', 'active', 'expiresAt', 'updatedAt']) &&
                        incoming().keys().hasOnly(['userId', 'chatId', 'participantUids', 'displayName', 'avatarUrl', 'latitude', 'longitude', 'accuracyMeters', 'active', 'expiresAt', 'updatedAt']) &&
                        isValidLiveLocation(incoming()) &&
-                       exists(/databases/$(database)/documents/chats/$(chatId)) &&
-                       request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantUids &&
-                       ('liveLocationUids' in get(/databases/$(database)/documents/chats/$(chatId)).data) &&
-                       get(/databases/$(database)/documents/chats/$(chatId)).data.liveLocationUids.size() <= 15 &&
-                       request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.liveLocationUids;
+                       existsAfter(/databases/$(database)/documents/chats/$(chatId)) &&
+                       request.auth.uid in getAfter(/databases/$(database)/documents/chats/$(chatId)).data.participantUids &&
+                       ('liveLocationUids' in getAfter(/databases/$(database)/documents/chats/$(chatId)).data) &&
+                       getAfter(/databases/$(database)/documents/chats/$(chatId)).data.liveLocationUids.size() <= 15 &&
+                       request.auth.uid in getAfter(/databases/$(database)/documents/chats/$(chatId)).data.liveLocationUids;
       allow delete: if isSignedIn() && isValidId(userId) && (
         request.auth.uid == userId ||
         (exists(/databases/$(database)/documents/chats/$(chatId)) &&

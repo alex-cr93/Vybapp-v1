@@ -28,6 +28,14 @@ data class NotificationNavTarget(
     val openCallsTab: Boolean = false
 )
 
+object ActiveChatTracker {
+    @Volatile
+    var isAppForeground: Boolean = false
+
+    @Volatile
+    var activeChatId: String? = null
+}
+
 object NotificationHelper {
     const val CHANNEL_CHAT = "vyb_chat_channel"
     const val CHANNEL_BUZZ = "vyb_buzz_channel"
@@ -92,6 +100,7 @@ object NotificationHelper {
                         description = "Notificaciones push de mensajes directos y grupales"
                         enableLights(true)
                         enableVibration(true)
+                        vibrationPattern = longArrayOf(0L, 180L, 90L, 180L)
                         setShowBadge(true)
                         setSound(defaultSound, msgAudioAttrs)
                         lockscreenVisibility = Notification.VISIBILITY_PRIVATE
@@ -104,6 +113,7 @@ object NotificationHelper {
                         description = "Alertas instantáneas tipo Bip en VYB"
                         enableLights(true)
                         enableVibration(true)
+                        vibrationPattern = longArrayOf(0L, 260L, 80L, 260L, 80L, 320L)
                         setShowBadge(true)
                         setSound(defaultSound, msgAudioAttrs)
                         lockscreenVisibility = Notification.VISIBILITY_PRIVATE
@@ -116,6 +126,7 @@ object NotificationHelper {
                         description = "Alertas de llamadas de voz y videollamadas VYB"
                         enableLights(true)
                         enableVibration(true)
+                        vibrationPattern = longArrayOf(0L, 500L, 300L, 500L)
                         setShowBadge(true)
                         lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                     },
@@ -127,6 +138,7 @@ object NotificationHelper {
                         description = "Cobros y confirmaciones SINPE en tus chats"
                         enableLights(true)
                         enableVibration(true)
+                        vibrationPattern = longArrayOf(0L, 220L, 100L, 220L)
                         setShowBadge(true)
                         setSound(defaultSound, msgAudioAttrs)
                         lockscreenVisibility = Notification.VISIBILITY_PRIVATE
@@ -139,6 +151,7 @@ object NotificationHelper {
                         description = "Nuevas solicitudes de conexión en VYB"
                         enableLights(true)
                         enableVibration(true)
+                        vibrationPattern = longArrayOf(0L, 180L, 90L, 180L)
                         setShowBadge(true)
                         setSound(defaultSound, msgAudioAttrs)
                         lockscreenVisibility = Notification.VISIBILITY_PRIVATE
@@ -193,6 +206,7 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val defaultSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
         val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_vyb_notification)
             .setContentTitle(title)
@@ -200,6 +214,11 @@ object NotificationHelper {
             .setCategory(category)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setSound(defaultSound)
+            .setVibrate(
+                if (channelType == "buzz") longArrayOf(0L, 260L, 80L, 260L, 80L, 320L)
+                else longArrayOf(0L, 180L, 90L, 180L)
+            )
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setWhen(System.currentTimeMillis())
             .setShowWhen(true)

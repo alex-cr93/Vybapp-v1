@@ -3257,6 +3257,29 @@ private fun ChatRoomScreen(
                 )
             }
         }
+
+        if (showLiveLocationMapSheet) {
+            LiveLocationChatMapSheet(
+                chat = chat,
+                chatTitle = title,
+                currentUid = currentUser.userId,
+                privateUser = privateUser,
+                savedContacts = savedContacts,
+                activeShares = activeLiveLocations,
+                isStarting = isStartingLiveLocation,
+                onStartSharing = { durationMin ->
+                    requestLocationPermissionAndExecute(durationMin)
+                },
+                onStopSharing = {
+                    chatViewModel.stopLiveLocationSharing(chat.id)
+                },
+                onSendStaticLocation = {
+                    showLiveLocationMapSheet = false
+                    requestLocationPermissionAndExecute(null)
+                },
+                onDismiss = { showLiveLocationMapSheet = false }
+            )
+        }
     }
 
     // Expandable WhatsApp-style bottom attachment sheet ('+' button)
@@ -3535,29 +3558,6 @@ private fun ChatRoomScreen(
                 chatViewModel.clearLookup()
                 showGroupMembersSheet = false
             }
-        )
-    }
-
-    if (showLiveLocationMapSheet) {
-        LiveLocationChatMapSheet(
-            chat = chat,
-            chatTitle = title,
-            currentUid = currentUser.userId,
-            privateUser = privateUser,
-            savedContacts = savedContacts,
-            activeShares = activeLiveLocations,
-            isStarting = isStartingLiveLocation,
-            onStartSharing = { durationMin ->
-                requestLocationPermissionAndExecute(durationMin)
-            },
-            onStopSharing = {
-                chatViewModel.stopLiveLocationSharing(chat.id)
-            },
-            onSendStaticLocation = {
-                showLiveLocationMapSheet = false
-                requestLocationPermissionAndExecute(null)
-            },
-            onDismiss = { showLiveLocationMapSheet = false }
         )
     }
 }

@@ -85,28 +85,41 @@ class VybMessagingService : FirebaseMessagingService() {
                 else -> "Tienes un mensaje nuevo en VYB."
             }
 
+        val senderId = data["senderId"]?.takeIf { it.isNotBlank() }
+        val currentUid = Firebase.auth.currentUser?.uid
+        if (senderId != null && senderId == currentUid) {
+            return
+        }
+
         val eventKey = data["eventId"]?.takeIf { it.isNotBlank() }
             ?: messageId?.let { "msg_${targetChatId.orEmpty()}_$it" }
             ?: "fcm_${remoteMessage.messageId ?: "${channelType}_${targetChatId.orEmpty()}_${remoteMessage.sentTime}_${body.hashCode()}"}"
 
+        val isViewingTargetChatInForeground =
+            ActiveChatTracker.isAppForeground &&
+                targetChatId != null &&
+                ActiveChatTracker.activeChatId == targetChatId
+
         runBlocking(Dispatchers.IO) {
             withTimeoutOrNull(8_000L) {
-                val shouldNotify = PreferencesStore(appContext).markEventNotifiedIfNew(eventKey)
-                if (shouldNotify) {
-                    NotificationHelper.showNotification(
-                        context = appContext,
-                        channelType = channelType,
-                        title = title,
-                        body = body,
-                        notificationId = eventKey.hashCode(),
-                        targetChatId = targetChatId,
-                        openRequestsTab = openRequests,
-                        openCallsTab = openCalls
-                    )
+                if (!isViewingTargetChatInForeground) {
+                    val shouldNotify = PreferencesStore(appContext).markEventNotifiedIfNew(eventKey)
+                    if (shouldNotify) {
+                        NotificationHelper.showNotification(
+                            context = appContext,
+                            channelType = channelType,
+                            title = title,
+                            body = body,
+                            notificationId = eventKey.hashCode(),
+                            targetChatId = targetChatId,
+                            openRequestsTab = openRequests,
+                            openCallsTab = openCalls
+                        )
+                    }
                 }
                 if (targetChatId != null &&
                     channelType in setOf("chat", "sinpe", "buzz") &&
-                    Firebase.auth.currentUser != null
+                    currentUid != null
                 ) {
                     runCatching {
                         ChatRepository(appContext).acknowledgeChatDelivered(

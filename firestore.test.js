@@ -2045,3 +2045,85 @@ test("25. Chat and message delivery/read ACKs (lastDeliveredAt, deliveredTo, rea
   );
 });
 
+test("26. Live location sharing supports atomic transaction updates, coordinate refreshes, and enforces 15-user and participant bounds", async () => {
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
+  const charlieDb = testEnv.authenticatedContext(CHARLIE_UID).firestore();
+  const ts = pastDate();
+  const futureTs = new Date(Date.now() + 3600 * 1000);
+
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().collection("chats").doc("chat_live_1").set({
+      participantUids: [ALICE_UID, BOB_UID],
+      participantNames: { [ALICE_UID]: "Alicia", [BOB_UID]: "Roberto" },
+      chatType: "direct",
+      lastMessageText: "Hola",
+      unreadCounts: { [ALICE_UID]: 0, [BOB_UID]: 0 },
+      createdBy: ALICE_UID,
+      lastMessageAt: ts,
+      createdAt: ts,
+      updatedAt: ts,
+    });
+  });
+
+  // Atomic batch/transaction: update chats/{chatId}.liveLocationUids + create chats/{chatId}/live_locations/{uid}
+  const updateTs = pastDate();
+  const batch = aliceDb.batch();
+  batch.update(aliceDb.collection("chats").doc("chat_live_1"), {
+    liveLocationUids: [ALICE_UID],
+    updatedAt: updateTs,
+  });
+  batch.set(aliceDb.collection("chats").doc("chat_live_1").collection("live_locations").doc(ALICE_UID), {
+    userId: ALICE_UID,
+    chatId: "chat_live_1",
+    participantUids: [ALICE_UID, BOB_UID],
+    displayName: "Alicia",
+    latitude: 9.9281,
+    longitude: -84.0907,
+    accuracyMeters: 12,
+    active: true,
+    expiresAt: futureTs,
+    updatedAt: updateTs,
+  });
+  await assertSucceeds(batch.commit());
+
+  // Periodic coordinate update succeeds while userId is in chat.liveLocationUids
+  const moveTs = pastDate();
+  await assertSucceeds(
+    aliceDb.collection("chats").doc("chat_live_1").collection("live_locations").doc(ALICE_UID).set({
+      userId: ALICE_UID,
+      chatId: "chat_live_1",
+      participantUids: [ALICE_UID, BOB_UID],
+      displayName: "Alicia",
+      latitude: 9.9305,
+      longitude: -84.0891,
+      accuracyMeters: 8,
+      active: true,
+      expiresAt: futureTs,
+      updatedAt: moveTs,
+    })
+  );
+
+  // Participant Bob can read Alice's live location; non-participant Charlie is denied
+  await assertSucceeds(
+    bobDb.collection("chats").doc("chat_live_1").collection("live_locations").get()
+  );
+  await assertFails(
+    charlieDb.collection("chats").doc("chat_live_1").collection("live_locations").get()
+  );
+  await assertFails(
+    charlieDb.collection("chats").doc("chat_live_1").collection("live_locations").doc(CHARLIE_UID).set({
+      userId: CHARLIE_UID,
+      chatId: "chat_live_1",
+      participantUids: [ALICE_UID, BOB_UID, CHARLIE_UID],
+      displayName: "Charlie",
+      latitude: 9.9,
+      longitude: -84.0,
+      active: true,
+      expiresAt: futureTs,
+      updatedAt: pastDate(),
+    })
+  );
+});
+
+

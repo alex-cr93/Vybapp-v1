@@ -31,12 +31,21 @@ jobs:
       - name: Prepare .env configuration
         env:
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+          FIREBASE_APPCHECK_DEBUG_TOKEN: ${{ secrets.FIREBASE_APPCHECK_DEBUG_TOKEN }}
+          RECAPTCHA_SITE_KEY: ${{ secrets.RECAPTCHA_SITE_KEY }}
         run: |
-
           if [ -n "$MAPS_API_KEY" ]; then
             echo "MAPS_API_KEY=$MAPS_API_KEY" > .env
           elif [ ! -f .env ] && [ -f .env.example ]; then
             cp .env.example .env
+          else
+            touch .env
+          fi
+          if [ -n "$FIREBASE_APPCHECK_DEBUG_TOKEN" ]; then
+            echo "FIREBASE_APPCHECK_DEBUG_TOKEN=$FIREBASE_APPCHECK_DEBUG_TOKEN" >> .env
+          fi
+          if [ -n "$RECAPTCHA_SITE_KEY" ]; then
+            echo "RECAPTCHA_SITE_KEY=$RECAPTCHA_SITE_KEY" >> .env
           fi
       - name: Generate debug keystore
         run: |

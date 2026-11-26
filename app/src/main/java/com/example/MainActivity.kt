@@ -88,6 +88,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -122,12 +123,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.core.ActiveChatTracker
 import com.example.core.CallSoundManager
 import com.example.core.ConnectivityObserver
 import com.example.core.NotificationHelper
 import com.example.core.NotificationNavTarget
 import com.example.core.PreferencesStore
 import com.example.core.PushNotificationRegistrar
+import com.example.core.VybPermissionsHelper
 import com.example.core.configureAppCheck
 import com.example.data.model.CallSession
 import com.example.data.model.Chat
@@ -152,6 +155,7 @@ import com.example.ui.screens.CallsScreen
 import com.example.ui.screens.ChatsScreen
 import com.example.ui.screens.HomeFeedScreen
 import com.example.ui.screens.OnboardingProfileScreen
+import com.example.ui.screens.PermissionsOnboardingScreen
 import com.example.ui.screens.ProfileScreen
 import com.example.ui.theme.LocalVybColors
 import com.example.ui.theme.VYBTheme
@@ -238,10 +242,17 @@ private data class InAppNotificationBannerData(
 class MainActivity : ComponentActivity() {
 
     private var pendingNavTarget by mutableStateOf<NotificationNavTarget?>(null)
+    private var permissionCheckNonce by mutableIntStateOf(0)
+
+    override fun onResume() {
+        super.onResume()
+        permissionCheckNonce++
+    }
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        configureAppCheck(this, intent)
         NotificationHelper.extractNavTarget(intent)?.let {
             pendingNavTarget = it
         }
@@ -307,6 +318,8 @@ class MainActivity : ComponentActivity() {
                                 fbUser = fbUser,
                                 widthSizeClass = windowSizeClass.widthSizeClass,
                                 isOnline = isOnline,
+                                permissionCheckNonce = permissionCheckNonce,
+                                onRefreshPermissions = { permissionCheckNonce++ },
                                 preferencesStore = preferencesStore,
                                 authViewModel = authViewModel,
                                 pendingNavTarget = pendingNavTarget,
@@ -435,17 +448,28 @@ private fun AuthenticatedVybShell(
     fbUser: FirebaseUser,
     widthSizeClass: WindowWidthSizeClass,
     isOnline: Boolean,
+    permissionCheckNonce: Int,
+    onRefreshPermissions: () -> Unit,
     preferencesStore: PreferencesStore,
     authViewModel: AuthViewModel,
     pendingNavTarget: NotificationNavTarget?,
     onConsumeNavTarget: () -> Unit
 ) {
     val context = LocalContext.current
+    val activity = context as? ComponentActivity
     val vybColors = LocalVybColors.current
     val dbId = remember { context.applicationContext.getString(R.string.firestore_database_id) }
     val db = remember(dbId) { FirebaseFirestore.getInstance(dbId) }
 
     val userRepo = remember(db) { UserRepository(db) }
+    val requestedPermissionsHistory by preferencesStore.requestedPermissions.collectAsStateWithLifecycle(initialValue = emptySet())
+    val permissionsSnapshot = remember(permissionCheckNonce, requestedPermissionsHistory) {
+        VybPermissionsHelper.snapshot(context, activity, requestedPermissionsHistory)
+    }
+
+    LaunchedEffect(fbUser.uid) {
+        PushNotificationRegistrar.syncFcmToken(context, userRepo, preferencesStore)
+    }
 
     val profileViewModel: ProfileViewModel = viewModel(
         key = "profile_${fbUser.uid}",
@@ -570,6 +594,13 @@ private fun AuthenticatedVybShell(
                     isAccountVerified = fbUser.isEmailVerified || !fbUser.phoneNumber.isNullOrBlank(),
                     onSignOut = { authViewModel.signOut(context) }
                 )
+            } else if (!permissionsSnapshot.allRequiredGranted) {
+                PermissionsOnboardingScreen(
+                    snapshot = permissionsSnapshot,
+                    preferencesStore = preferencesStore,
+                    onRefreshPermissions = onRefreshPermissions,
+                    onSignOut = { authViewModel.signOut(context) }
+                )
             } else {
                 VybMainScaffold(
                     db = db,
@@ -653,6 +684,7 @@ private fun VybMainScaffold(
     )
 
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val vybColors = LocalVybColors.current
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -697,21 +729,43 @@ private fun VybMainScaffold(
     DisposableEffect(lifecycleOwner, context) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_START -> isAppInForeground = true
+                Lifecycle.Event.ON_START -> {
+                    isAppInForeground = true
+                    ActiveChatTracker.isAppForeground = true
+                }
                 Lifecycle.Event.ON_STOP -> {
                     isAppInForeground = false
+                    ActiveChatTracker.isAppForeground = false
                     PushNotificationRegistrar.triggerExpeditedSync(context)
                 }
                 else -> {}
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        onDispose {
+            ActiveChatTracker.isAppForeground = false
+            ActiveChatTracker.activeChatId = null
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(selectedChat?.id, currentDest?.route) {
+        ActiveChatTracker.activeChatId = if (currentDest?.hasRoute<RouteChats>() == true) {
+            selectedChat?.id
+        } else {
+            null
+        }
     }
 
     val notifPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { /* system notifications enabled or declined gracefully */ }
+    ) { granted ->
+        if (granted) {
+            scope.launch {
+                PushNotificationRegistrar.syncFcmToken(context, userRepo, preferencesStore)
+            }
+        }
+    }
 
     LaunchedEffect(publicUser.userId) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&

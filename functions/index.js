@@ -25,6 +25,8 @@ exports.sendChatMessagePush = onDocumentCreated(
     const recipientUids = participants.filter((uid) => typeof uid === "string" && uid && uid !== senderId);
     if (recipientUids.length === 0) return;
 
+    if (msg.deletedForEveryone === true) return;
+
     const db = getFirestore(admin.app(), DATABASE_ID);
     const chatSnap = await db.collection("chats").doc(chatId).get();
     const chatData = chatSnap.exists ? chatSnap.data() || {} : {};
@@ -33,25 +35,37 @@ exports.sendChatMessagePush = onDocumentCreated(
 
     const msgType = msg.messageType || "text";
     let channelType = "chat";
-    let channelId = "vyb_chat_channel";
     let body = (msg.text || "Tienes un mensaje nuevo").slice(0, 200);
 
     if (msgType === "buzz") {
       channelType = "buzz";
-      channelId = "vyb_buzz_channel";
       body = `${senderName} te envió un bip`;
     } else if (msgType === "sinpe") {
       channelType = "sinpe";
-      channelId = "vyb_sinpe_channel";
     } else if (msgType === "media") {
-      body = msg.text || (msg.mediaType === "video" ? "Video adjunto" : "Foto adjunta");
+      const mediaFallback = msg.mediaType === "video"
+        ? "Video adjunto"
+        : msg.mediaType === "audio"
+          ? "Nota de voz"
+          : "Foto adjunta";
+      body = (msg.text || mediaFallback).slice(0, 200);
+    } else if (msgType === "document") {
+      body = (msg.documentName ? `Documento: ${msg.documentName}` : msg.text || "Documento adjunto").slice(0, 200);
+    } else if (msgType === "location") {
+      body = (msg.locationLabel ? `Ubicación: ${msg.locationLabel}` : "Ubicación compartida").slice(0, 200);
+    } else if (msgType === "contact") {
+      body = (msg.sharedContactName ? `Contacto: ${msg.sharedContactName}` : "Contacto compartido").slice(0, 200);
+    } else if (msgType === "poll") {
+      body = (msg.pollQuestion ? `Encuesta: ${msg.pollQuestion}` : "Nueva encuesta").slice(0, 200);
+    } else if (msgType === "ai_summary") {
+      body = (msg.aiSummaryTopic ? `Resumen: ${msg.aiSummaryTopic}` : "Resumen del chat").slice(0, 200);
     }
 
     const privateSnaps = await Promise.all(
       recipientUids.map((uid) => db.collection("users_private").doc(uid).get())
     );
 
-    const tokens = [];
+    const tokenOwnerMap = new Map();
     for (const privSnap of privateSnaps) {
       if (!privSnap.exists) continue;
       const priv = privSnap.data() || {};
@@ -60,17 +74,24 @@ exports.sendChatMessagePush = onDocumentCreated(
       if (channelType === "sinpe" && priv.sinpeAlertsEnabled === false) continue;
       if (channelType !== "sinpe" && priv.soundEnabled === false) continue;
       if (typeof priv.fcmToken === "string" && priv.fcmToken.trim()) {
-        tokens.push(priv.fcmToken.trim());
+        const cleanToken = priv.fcmToken.trim();
+        if (!tokenOwnerMap.has(cleanToken)) {
+          tokenOwnerMap.set(cleanToken, privSnap.id);
+        }
       }
     }
 
+    const tokens = Array.from(tokenOwnerMap.keys());
     if (tokens.length === 0) return;
 
-    await admin.messaging().sendEachForMulticast({
+    // Data-only payload with high Android priority guarantees VybMessagingService.onMessageReceived()
+    // executes even when the app is in background or killed state.
+    const response = await admin.messaging().sendEachForMulticast({
       tokens,
       data: {
         eventId: `msg_${chatId}_${messageId}`,
         channelType,
+        type: channelType,
         chatId,
         messageId,
         senderId,
@@ -81,16 +102,33 @@ exports.sendChatMessagePush = onDocumentCreated(
       android: {
         priority: "high",
         ttl: 3600 * 1000,
-        notification: {
-          channelId,
-          title,
-          body,
-          sound: "default",
-          defaultSound: true,
-          defaultVibrateTimings: true,
-          notificationPriority: "PRIORITY_MAX",
-        },
       },
     });
+
+    if (response.failureCount > 0) {
+      const cleanupOps = [];
+      response.responses.forEach((resp, idx) => {
+        if (!resp.success) {
+          const code = resp.error && resp.error.code ? resp.error.code : "unknown";
+          const badToken = tokens[idx];
+          const ownerUid = tokenOwnerMap.get(badToken);
+          console.warn(`FCM delivery error (${code}) for uid=${ownerUid}`);
+          if (
+            ownerUid &&
+            (code === "messaging/registration-token-not-registered" ||
+              code === "messaging/invalid-registration-token")
+          ) {
+            cleanupOps.push(
+              db.collection("users_private").doc(ownerUid).update({
+                fcmToken: admin.firestore.FieldValue.delete(),
+              }).catch(() => {})
+            );
+          }
+        }
+      });
+      if (cleanupOps.length > 0) {
+        await Promise.all(cleanupOps);
+      }
+    }
   }
 );

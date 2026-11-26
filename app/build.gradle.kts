@@ -1,14 +1,20 @@
 import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
 import java.util.Properties
 
-fun resolveEnvSecret(root: File, key: String, gradleProp: String?, envVar: String?): String {
+fun resolveEnvSecret(
+  root: File,
+  key: String,
+  gradleProp: String?,
+  envVar: String?,
+  placeholders: Set<String> = emptySet(),
+  defaultValue: String = ""
+): String {
   fun readKeyFromFile(file: File): String? {
     if (!file.exists()) return null
     val props = Properties()
     file.inputStream().use { props.load(it) }
     return props.getProperty(key)?.trim()?.trim('"', '\'')?.takeIf { it.isNotBlank() }
   }
-  val placeholders = setOf("MY_MAPS_API_KEY", "MAPS_API_KEY_DEFAULT_VALUE", "YOUR_API_KEY")
   val candidates = listOfNotNull(
     readKeyFromFile(File(root, ".env")),
     gradleProp?.trim()?.trim('"', '\'')?.takeIf { it.isNotBlank() },
@@ -17,14 +23,34 @@ fun resolveEnvSecret(root: File, key: String, gradleProp: String?, envVar: Strin
   )
   return candidates.firstOrNull { it !in placeholders }
     ?: candidates.firstOrNull()
-    ?: "MY_MAPS_API_KEY"
+    ?: defaultValue
 }
 
 val resolvedMapsApiKey = resolveEnvSecret(
   root = rootDir,
   key = "MAPS_API_KEY",
   gradleProp = providers.gradleProperty("MAPS_API_KEY").orNull,
-  envVar = providers.environmentVariable("MAPS_API_KEY").orNull
+  envVar = providers.environmentVariable("MAPS_API_KEY").orNull,
+  placeholders = setOf("MY_MAPS_API_KEY", "MAPS_API_KEY_DEFAULT_VALUE", "YOUR_API_KEY"),
+  defaultValue = "MY_MAPS_API_KEY"
+)
+
+val resolvedAppCheckDebugToken = resolveEnvSecret(
+  root = rootDir,
+  key = "FIREBASE_APPCHECK_DEBUG_TOKEN",
+  gradleProp = providers.gradleProperty("FIREBASE_APPCHECK_DEBUG_TOKEN").orNull,
+  envVar = providers.environmentVariable("FIREBASE_APPCHECK_DEBUG_TOKEN").orNull,
+  placeholders = setOf("YOUR_APPCHECK_DEBUG_TOKEN", "MY_APPCHECK_DEBUG_TOKEN"),
+  defaultValue = ""
+)
+
+val resolvedRecaptchaSiteKey = resolveEnvSecret(
+  root = rootDir,
+  key = "RECAPTCHA_SITE_KEY",
+  gradleProp = providers.gradleProperty("RECAPTCHA_SITE_KEY").orNull,
+  envVar = providers.environmentVariable("RECAPTCHA_SITE_KEY").orNull,
+  placeholders = setOf("YOUR_RECAPTCHA_SITE_KEY", "MY_RECAPTCHA_SITE_KEY"),
+  defaultValue = ""
 )
 
 plugins {
@@ -48,8 +74,12 @@ android {
     versionName = "1.0"
 
     val escapedMapsKey = resolvedMapsApiKey.replace("\\", "\\\\").replace("\"", "\\\"")
+    val escapedDebugToken = resolvedAppCheckDebugToken.replace("\\", "\\\\").replace("\"", "\\\"")
+    val escapedRecaptchaKey = resolvedRecaptchaSiteKey.replace("\\", "\\\\").replace("\"", "\\\"")
     manifestPlaceholders["MAPS_API_KEY"] = resolvedMapsApiKey
     buildConfigField("String", "MAPS_API_KEY", "\"$escapedMapsKey\"")
+    buildConfigField("String", "FIREBASE_APPCHECK_DEBUG_TOKEN", "\"$escapedDebugToken\"")
+    buildConfigField("String", "RECAPTCHA_SITE_KEY", "\"$escapedRecaptchaKey\"")
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
@@ -109,6 +139,7 @@ secrets {
   propertiesFileName = ".env"
   defaultPropertiesFileName = ".env.example"
   ignoreList.add("FIREBASE_APPCHECK_DEBUG_TOKEN")
+  ignoreList.add("RECAPTCHA_SITE_KEY")
   ignoreList.add("MAPS_API_KEY")
 }
 

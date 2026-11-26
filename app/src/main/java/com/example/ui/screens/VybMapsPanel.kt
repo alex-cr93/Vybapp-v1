@@ -37,6 +37,7 @@ import com.example.ui.theme.LocalVybColors
 import com.example.ui.theme.VybElectricBlue
 import com.example.ui.theme.VybMonoTabularStyle
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.MapsInitializer
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
@@ -54,6 +55,14 @@ fun VybMapsPanel(
     val context = LocalContext.current
     val vybColors = LocalVybColors.current
     val hasValidMapsKey = remember(context) { MapsConfigHelper.hasValidMapsApiKey(context) }
+
+    LaunchedEffect(hasValidMapsKey) {
+        if (hasValidMapsKey) {
+            runCatching {
+                MapsInitializer.initialize(context.applicationContext, MapsInitializer.Renderer.LATEST) {}
+            }
+        }
+    }
 
     Card(
         shape = RoundedCornerShape(18.dp),

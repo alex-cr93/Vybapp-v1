@@ -166,11 +166,16 @@ class AiRepository {
 
     private fun formatAiError(error: Throwable?): String {
         val raw = error?.localizedMessage ?: error?.message ?: ""
+        Log.e(TAG, "Formatting AI error (${error?.javaClass?.simpleName}): $raw", error)
         return when {
             raw.contains("404", ignoreCase = true) || raw.contains("not found", ignoreCase = true) ->
                 "El asistente no respondió ahora. Inténtalo de nuevo en unos segundos."
-            raw.contains("AppCheck", ignoreCase = true) || raw.contains("app check", ignoreCase = true) || raw.contains("403", ignoreCase = true) ->
-                "No se pudo verificar la seguridad de la solicitud. Revisa tu conexión e intenta de nuevo."
+            raw.contains("AppCheck", ignoreCase = true) ||
+                raw.contains("app check", ignoreCase = true) ||
+                raw.contains("App Check", ignoreCase = true) ||
+                raw.contains("attestation", ignoreCase = true) ||
+                raw.contains("403", ignoreCase = true) ->
+                "No se pudo verificar la seguridad de la solicitud (App Check). Verifica el token de depuración o compila en Release."
             raw.contains("429", ignoreCase = true) || raw.contains("quota", ignoreCase = true) || raw.contains("resource exhausted", ignoreCase = true) ->
                 "El asistente está recibiendo muchas consultas en este momento. Intenta en unos segundos."
             raw.contains("Unable to resolve host", ignoreCase = true) ||
@@ -183,6 +188,21 @@ class AiRepository {
             raw.isNotBlank() -> raw
             else -> "No se pudo obtener respuesta del asistente. Inténtalo de nuevo."
         }
+    }
+
+    private fun parseAiJsonObject(rawText: String): JSONObject {
+        val trimmed = rawText.trim()
+        val unwrapped = if (trimmed.startsWith("```")) {
+            trimmed
+                .removePrefix("```json")
+                .removePrefix("```JSON")
+                .removePrefix("```")
+                .removeSuffix("```")
+                .trim()
+        } else {
+            trimmed
+        }
+        return JSONObject(unwrapped)
     }
 
     private suspend fun <T> withModelFallback(
@@ -242,7 +262,7 @@ class AiRepository {
                 "Resume de forma breve y clara esta conversación en español neutral (tú), extrayendo el tema principal (máximo 6 palabras), lo principal, decisiones y pendientes:\n\n$transcript"
             )
             val raw = response.text ?: throw IllegalStateException("No se recibió contenido para resumir.")
-            val json = JSONObject(raw)
+            val json = parseAiJsonObject(raw)
             val topic = json.optString("temaPrincipal", "").trim().take(80)
             val main = json.optString("loPrincipal", "Sin resumen disponible.")
             val decisionsArr = json.optJSONArray("decisionesTomadas")
@@ -288,7 +308,7 @@ class AiRepository {
                 "Reescribe este mensaje en 3 variantes naturales en español neutral:\n\n\"$draft\""
             )
             val raw = response.text ?: throw IllegalStateException("No se generaron opciones de tono.")
-            val json = JSONObject(raw)
+            val json = parseAiJsonObject(raw)
             ToneVariants(
                 formal = json.getString("formal"),
                 casual = json.getString("casual"),
@@ -330,7 +350,7 @@ class AiRepository {
                 }
             )
             val raw = response.text ?: throw IllegalStateException("No se pudo interpretar la imagen del recibo.")
-            val json = JSONObject(raw)
+            val json = parseAiJsonObject(raw)
             ScannedReceipt(
                 merchant = json.optString("comercio", "Factura").ifBlank { "Factura" },
                 concept = json.optString("concepto", "Cuenta compartida").ifBlank { "Cuenta compartida" },

@@ -1,11 +1,14 @@
 package com.example.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,8 +21,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -64,8 +69,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
 import com.example.BuildConfig
 import com.example.core.LiveLocationCluster
 import com.example.core.LiveLocationClusterer
@@ -82,9 +86,11 @@ import com.example.ui.theme.LocalVybColors
 import com.example.ui.theme.VybGradientBrush
 import com.example.ui.theme.VybMonoTabularStyle
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.MapsInitializer
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.MarkerComposable
 import com.google.maps.android.compose.MarkerState
@@ -194,6 +200,18 @@ fun LiveLocationChatMapSheet(
     val vybColors = LocalVybColors.current
     val scope = rememberCoroutineScope()
     val hasValidMapsKey = remember(context) { MapsConfigHelper.hasValidMapsApiKey(context) }
+    val hasLocationPermission = remember(context) {
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    }
+
+    LaunchedEffect(hasValidMapsKey) {
+        if (hasValidMapsKey) {
+            runCatching {
+                MapsInitializer.initialize(context.applicationContext, MapsInitializer.Renderer.LATEST) {}
+            }
+        }
+    }
 
     val privacyScope = LiveLocationScope.fromKey(privateUser?.liveLocationScope)
     val defaultDuration = (privateUser?.liveLocationDurationMin ?: 60L).toInt().coerceIn(5, 480)
@@ -264,14 +282,22 @@ fun LiveLocationChatMapSheet(
         }
     }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+    // In-window full-screen overlay instead of Dialog so GoogleMap SurfaceView renders reliably
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.94f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {}
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(horizontal = 8.dp, vertical = 10.dp)
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 10.dp, vertical = 22.dp)
                 .testTag("live_location_map_sheet"),
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface,
@@ -343,9 +369,10 @@ fun LiveLocationChatMapSheet(
                         GoogleMap(
                             modifier = Modifier.fillMaxSize(),
                             cameraPositionState = cameraPositionState,
+                            properties = MapProperties(isMyLocationEnabled = hasLocationPermission),
                             uiSettings = MapUiSettings(
                                 zoomControlsEnabled = true,
-                                myLocationButtonEnabled = false,
+                                myLocationButtonEnabled = hasLocationPermission,
                                 compassEnabled = true
                             )
                         ) {

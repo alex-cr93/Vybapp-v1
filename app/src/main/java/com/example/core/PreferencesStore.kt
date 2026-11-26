@@ -30,6 +30,7 @@ class PreferencesStore(private val context: Context) {
         val FCM_TOKEN = stringPreferencesKey("fcm_token")
         val LAST_BG_SYNC_EPOCH_MS = longPreferencesKey("last_bg_sync_epoch_ms")
         val NOTIFIED_EVENT_KEYS = stringSetPreferencesKey("notified_event_keys")
+        val REQUESTED_PERMISSIONS = stringSetPreferencesKey("requested_permissions")
     }
 
     private val safeData: Flow<Preferences> = context.vybDataStore.data.catch { exception ->
@@ -60,6 +61,10 @@ class PreferencesStore(private val context: Context) {
 
     val fcmToken: Flow<String?> = safeData.map { prefs ->
         prefs[Keys.FCM_TOKEN]?.takeIf { it.isNotBlank() }
+    }
+
+    val requestedPermissions: Flow<Set<String>> = safeData.map { prefs ->
+        prefs[Keys.REQUESTED_PERMISSIONS] ?: emptySet()
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {
@@ -116,5 +121,13 @@ class PreferencesStore(private val context: Context) {
             }
         }
         return isNew
+    }
+
+    suspend fun recordRequestedPermissions(permissions: Collection<String>) {
+        if (permissions.isEmpty()) return
+        context.vybDataStore.edit { prefs ->
+            val current = prefs[Keys.REQUESTED_PERMISSIONS] ?: emptySet()
+            prefs[Keys.REQUESTED_PERMISSIONS] = current + permissions
+        }
     }
 }
